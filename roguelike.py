@@ -1,5 +1,6 @@
 import os
 import pygame
+import csv
 from pygame.locals import *
 from pygame.compat import geterror
 
@@ -17,18 +18,15 @@ main_dir = os.path.split(os.path.abspath(__file__))[0]
 graphics_dir = os.path.join(main_dir, 'graphics')
 sound_dir = os.path.join(main_dir, 'sound')
 
+# xinput settings
+pygame.joystick.init()
+joystick_count = pygame.joystick.get_count()
+
+
 # the structure of levels will be determined by matricies with
 # negative values being void and 0 and 1 being floor and wall respectively
-test_map = [[1, 1, 1, 1, 1, 1, 1, -1, -1, -1],
-            [1, 0, 0, 0, 0, 0, 1, -1, -1, -1],
-            [1, 0, 0, 0, 0, 0, 1, -1, -1, -1],
-            [1, 0, 0, 0, 0, 0, 1, -1, -1, -1],
-            [1, 0, 0, 0, 0, 0, 1, -1, -1, -1],
-            [1, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [1, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 1, -1, -1, -1],
-            [1, 1, 1, 1, 1, 1, 1, -1, -1, -1]]
+
+test_map = list(csv.reader(open('levels/level_1.csv')))
 
 
 def load_image(name, colorkey=None):
@@ -53,8 +51,8 @@ def load_image(name, colorkey=None):
 
 class Player(pygame.sprite.Sprite):                 # initialize
     onscreen_size = (32, 32)                        # global size on the screen
-    start_x = 64                                    # global starting x pos
-    start_y = 128                                   # global starting y pos
+    start_x = 16                                   # global starting x pos
+    start_y = 16                                   # global starting y pos
 
     def __init__(self):                             # player default constructor
         pygame.sprite.Sprite.__init__(self)         # initialize player as a default sprite
@@ -68,8 +66,8 @@ class Player(pygame.sprite.Sprite):                 # initialize
 
 class Game:
     bg_color = (0, 0, 0)                            # background filler color
-    screen_resolution = (640, 480)                  # on screen window size
-    grid_size = 32                                  # size of a size of the grid
+    screen_resolution = (544, 544)                  # on screen window size
+    grid_size = 1                                  # size of a size of the grid
 
     def __init__(self):                             # def constructor for game
         self.screen = pygame.display.set_mode(      # set screen size to...
@@ -101,16 +99,30 @@ class Game:
 
         for event in pygame.event.get():
             if event.type == KEYDOWN:                   # key down controls
-                if event.key == K_RIGHT:
+                if event.key == K_RIGHT and (test_map[player.y][player.x + 1] != '1'):
                     player.x += grid_size
-                elif event.key == K_LEFT:
+                elif event.key == K_LEFT and (test_map[player.y][player.x - 1] != '1'):
                     player.x -= grid_size
-                elif event.key == K_UP:
+                elif event.key == K_UP and (test_map[player.y - 1][player.x] != '1'):
                     player.y -= grid_size
-                elif event.key == K_DOWN:
+                elif event.key == K_DOWN and (test_map[player.y + 1][player.x] != '1'):
                     player.y += grid_size
                 elif event.key == K_ESCAPE:
                     return False
+
+        # xinput controls
+        if joystick_count > 0:
+            joystick = pygame.joystick.Joystick(0)
+            joystick.init()
+            hat = joystick.get_hat(0)
+            if hat == (1, 0):
+                player.x += grid_size
+            if hat == (-1, 0):
+                player.x -= grid_size
+            if hat == (0, 1):
+                player.y -= grid_size
+            if hat == (0, -1):
+                player.y += grid_size
 
         return True
 
@@ -122,16 +134,16 @@ class Game:
         self.screen.blit(self.background, (0, 0))
 
         # draw the test_map matrix
-        for x in range(len(test_map)):
-            for y in range(len(test_map)):
-                if test_map[y][x] == 1:
-                    self.screen.blit(self.wall, (x * 32, y * 32))
-                elif test_map[y][x] == 0:
-                    self.screen.blit(self.floor, (x * 32, y * 32))
+        for x in range(self.player.x - 8, self.player.x + 9):
+            for y in range(self.player.y - 8, self.player.y + 9):
+                if test_map[y][x] == '1':
+                    self.screen.blit(self.wall, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
+                elif test_map[y][x] == '0':
+                    self.screen.blit(self.floor, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
 
         self.screen.blit(self.player.image, (
-            self.player.x,
-            self.player.y
+            8 * 32,
+            8 * 32
         ))
         pygame.display.flip()
 
