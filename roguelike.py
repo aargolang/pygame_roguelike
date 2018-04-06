@@ -98,9 +98,15 @@ class LevelWarp:
 
 
 # levels character values by convention
-# floors:   0 - 20
-# walls:    21 - 38
-# warp:     -1
+# corresponding wall floor class is +/- 60
+# floors 1('.'):        1 - 20
+# floors 2(','):        21 - 40
+# floors 3('`'):        41 - 60
+# walls 1('1'):         61 - 80
+# walls 2('2'):         81 - 100
+# walls 3('3'):         101 - 120
+# warp:                 0
+# nullspace('_'):       -1
 class Level:
     def __init__(self, level_p, tile_p=None):
         self.level_path = os.path.join(level_dir, level_p)
@@ -129,6 +135,9 @@ class Game:
         self.screen = pygame.display.set_mode(      # set screen size to...
             self.screen_resolution                  # screen_resolution
         )
+
+        pygame.display.set_icon(pygame.image.load('graphics/icon.bmp'))
+        pygame.display.set_caption('u can sav the world!')
         self.background = pygame.Surface(           # set background to...
             self.screen_resolution                  # size of screen
         ).convert()                                 # convert background to a surface
@@ -139,15 +148,25 @@ class Game:
         # declare levels
         self.town_level = Level('town.csv')
         self.dungeon_1_level = Level('dungeon_1.csv')
+        self.dungeon_2_level = Level('dungeon_2.csv')
+        self.forest_1_level = Level('forest_1.csv')
 
         # set warps
         self.town_level.set_warps({
             '33,27': LevelWarp(self.dungeon_1_level, 25, 24),
-            '22,12': LevelWarp(self.dungeon_1_level, 16, 8)
+            '22,12': LevelWarp(self.dungeon_1_level, 16, 8),
+            '54,25': LevelWarp(self.forest_1_level, 10, 38)
         })
         self.dungeon_1_level.set_warps({
             '25,25': LevelWarp(self.town_level, 32, 27),
-            '16,7': LevelWarp(self.town_level, 21, 12)
+            '16,7': LevelWarp(self.town_level, 21, 12),
+            '44,24': LevelWarp(self.dungeon_2_level, 13, 10)
+        })
+        self.dungeon_2_level.set_warps({
+            '13,9': LevelWarp(self.dungeon_1_level, 43, 24)
+        })
+        self.forest_1_level.set_warps({
+            '9,38': LevelWarp(self.town_level, 53, 25)
         })
 
         self.current_map = None
@@ -170,46 +189,61 @@ class Game:
     # LOAD LEVEL
     # load the level passed in into memory
     def load_level(self, lev):
+
+        if self.current_map is not None:
+            self.current_map.clear()
         self.current_map = list(csv.reader(open(lev.level_path)))
+        for i in range(len(self.current_map)):
+            for j in range(len(self.current_map[0])):
+                if self.current_map[i][j] == '_':  # set null
+                    self.current_map[i][j] = -1
+                elif self.current_map[i][j] == '.':  # set floors
+                    self.current_map[i][j] = 1
+                elif self.current_map[i][j] == ',':
+                    self.current_map[i][j] = 21
+                elif self.current_map[i][j] == '`':
+                    self.current_map[i][j] = 41
+                elif self.current_map[i][j] == '1':  # set walls
+                    self.current_map[i][j] = 61
+                elif self.current_map[i][j] == '2':
+                    self.current_map[i][j] = 81
+                elif self.current_map[i][j] == '3':
+                    self.current_map[i][j] = 101
+
         for a, b in lev.warp_list.items():
             warp_point = a.split(',')
-            self.current_map[int(warp_point[1])][int(warp_point[0])] = '-1'
+            self.current_map[int(warp_point[1])][int(warp_point[0])] = 0
 
     # CONTROL TICK
     # this function will handle all input functions
     # returns false when game is ready to quit
     def control_tick(self):
+
         pos_right = self.current_map[self.player.y][self.player.x + 1]
         pos_left = self.current_map[self.player.y][self.player.x - 1]
         pos_up = self.current_map[self.player.y - 1][self.player.x]
         pos_down = self.current_map[self.player.y + 1][self.player.x]
-        pos = self.current_map[self.player.y][self.player.x]
+        # pos = self.current_map[self.player.y][self.player.x]
 
-        if pos == '-1':
-            position_key = str(self.player.x) + ',' + str(self.player.y)
-            if self.current_level.warp_list[position_key]:
-                warp = self.current_level.warp_list[position_key]
-                self.load_level(warp.new_level)
-                self.current_level = warp.new_level
-                self.player.x = warp.new_x
-                self.player.y = warp.new_y
-
-        for event in pygame.event.get():
-            # key down controls
+        while True:
+            # improve performance by waiting to draw until new event is on event queue
+            event = pygame.event.wait()
             if event.type == KEYDOWN:
-                # making code less wordy
-
-                if event.key == K_RIGHT:
-                    if pos_right != '1':
-                        self.player.x += 1
-                elif event.key == K_LEFT and (pos_left != '1'):
+                if event.key == K_RIGHT and (pos_right < 61):
+                    self.player.x += 1
+                    return True
+                elif event.key == K_LEFT and (pos_left < 61):
                     self.player.x -= 1
-                elif event.key == K_UP and (pos_up != '1'):
+                    return True
+                elif event.key == K_UP and (pos_up < 61):
                     self.player.y -= 1
-                elif event.key == K_DOWN and (pos_down != '1'):
+                    return True
+                elif event.key == K_DOWN and (pos_down < 61):
                     self.player.y += 1
+                    return True
                 elif event.key == K_ESCAPE:
                     return False
+
 
         # xinput controls
         # currently sends the player at lightspeed in whatever direction
@@ -237,16 +271,27 @@ class Game:
     def draw_tick(self):
         self.screen.blit(self.background, (0, 0))
 
-        # draw the test_map matrix
+        # check for warp
+        pos = self.current_map[self.player.y][self.player.x]
+        if pos == 0:
+            position_key = str(self.player.x) + ',' + str(self.player.y)
+            if self.current_level.warp_list[position_key]:
+                warp = self.current_level.warp_list[position_key]
+                self.load_level(warp.new_level)
+                self.current_level = warp.new_level
+                self.player.x = warp.new_x
+                self.player.y = warp.new_y
+
+        # draw the current_map matrix
         # scroll the map based on the player
         # TODO: fix this to include variable resolution values
         for x in range(self.player.x - 8, self.player.x + 9):
             for y in range(self.player.y - 8, self.player.y + 9):
-                if self.current_map[y][x] == '1':
+                if self.current_map[y][x] > 60:
                     self.screen.blit(self.wall, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
-                elif self.current_map[y][x] == '0':
+                elif self.current_map[y][x] > 0:
                     self.screen.blit(self.floor, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
-                elif self.current_map[y][x] == '-1':
+                elif self.current_map[y][x] == 0:
                     self.screen.blit(self.warp, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
 
         # draw player in the center of the screen
@@ -256,11 +301,10 @@ class Game:
     # main game loop
     def run(self):
         while 1:
+            self.draw_tick()
             # return if control returns false
             if not self.control_tick():
                 return
-
-            self.draw_tick()
 
 
 def main():
