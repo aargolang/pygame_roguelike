@@ -9,7 +9,6 @@ pygame.mixer.init(22050, -16, 8, 4096)
 # TODO
 # - possibly reduce memory usage for large maps by only storing the walls
 # - figure out how to load enemies into the levels
-# - only render a new frame after user input to save processing time
 # - clean up floor and wall graphics implementation
 
 # set global varbarians to the source folder
@@ -111,26 +110,44 @@ class Level:
     def __init__(self, level_p, tile_p=None):
         self.level_path = os.path.join(level_dir, level_p)
         self.warp_list = None
+        self.npcs = []
+
         if tile_p is not None:
             self.tile_path = tile_p
 
     def set_warps(self, warps):
         self.warp_list = warps
 
+    def add_npc(self, npc):
+        self.npcs.append(npc)
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image, self.rect = load_image_rect('enemy.bmp')
+        self.x_pos = x
+        self.y_pos = y
+
+
+class Friendly(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image, self.rect = load_image_rect('friendly.bmp')
+        self.x_pos = x
+        self.y_pos = y
+
 
 # CLASS Game
 # stores screen resolution and background color
 # initializes the players starting location
 # define control and drawing methods
-# TODO: store current level, and init player starting location and level
 # TODO: add wall member as array of tiles
 # TODO: add floor member as array of tiles
-# TODO: add current_map as char array
-# TODO: define load_level() function
 class Game:
     background_color = (0, 0, 0)
     # screen size (in 32*32 squares) needs to be odd numbers because of player in center
-    screen_size = (45,23)
+    screen_size = (45, 23)
     screen_resolution = (screen_size[0] * 32, screen_size[1] * 32)
     screen_x_buffer = int((screen_size[0]-1)/2)
     screen_y_buffer = int((screen_size[1]-1)/2)
@@ -173,6 +190,21 @@ class Game:
             '1,30': LevelWarp(self.town_level, 45, 17)
         })
 
+        # set friendlies
+        self.town_level.add_npc(Friendly(10, 7))
+        self.town_level.add_npc(Friendly(25, 5))
+        self.town_level.add_npc(Friendly(43, 7))
+        self.town_level.add_npc(Friendly(13, 32))
+        self.town_level.add_npc(Friendly(23, 27))
+        self.town_level.add_npc(Friendly(36, 29))
+
+        # set enemies
+        self.dungeon_1_level.add_npc(Enemy(4, 18))
+        self.dungeon_1_level.add_npc(Enemy(4, 4))
+        self.dungeon_1_level.add_npc(Enemy(32, 2))
+        self.dungeon_1_level.add_npc(Enemy(32, 17))
+        self.dungeon_1_level.add_npc(Enemy(32, 21))
+
         # initialize game to first level
         self.current_map = None
         self.current_level = self.town_level
@@ -180,8 +212,12 @@ class Game:
         self.player = Player()
 
         # make the wall and floor class
-        self.floor = load_image(os.path.join(graphics_dir, "floor.bmp"))
-        self.wall = load_image(os.path.join(graphics_dir, "wall.bmp"))
+        self.floor = []
+        self.floor.append(load_image(os.path.join(graphics_dir, "floor_1.bmp")))
+        self.floor.append(load_image(os.path.join(graphics_dir, "floor_2.bmp")))
+        self.wall = []
+        self.wall.append(load_image(os.path.join(graphics_dir, "wall_1.bmp")))
+        self.wall.append(load_image(os.path.join(graphics_dir, "wall_2.bmp")))
         self.warp = load_image(os.path.join(graphics_dir, "warp.bmp"))
 
     # LOAD LEVEL
@@ -287,15 +323,28 @@ class Game:
         for x in range(self.player.x - self.screen_x_buffer, self.player.x + self.screen_x_buffer + 1):
             for y in range(self.player.y - self.screen_y_buffer, self.player.y + self.screen_y_buffer + 1):
                 if x in range(len(self.current_map[0])) and y in range(len(self.current_map)):
-                    if self.current_map[y][x] > 60:
-                        self.screen.blit(self.wall, ((x - self.player.x + self.screen_x_buffer) * 32,
+                    if self.current_map[y][x] > 80:
+                        self.screen.blit(self.wall[1], ((x - self.player.x + self.screen_x_buffer) * 32,
                                                      (y - self.player.y + self.screen_y_buffer) * 32))
+                    elif self.current_map[y][x] > 60:
+                        self.screen.blit(self.wall[0], ((x - self.player.x + self.screen_x_buffer) * 32,
+                                                         (y - self.player.y + self.screen_y_buffer) * 32))
+                    elif self.current_map[y][x] > 20:
+                        self.screen.blit(self.floor[1], ((x - self.player.x + self.screen_x_buffer) * 32,
+                                                      (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] > 0:
-                        self.screen.blit(self.floor, ((x - self.player.x + self.screen_x_buffer) * 32,
+                        self.screen.blit(self.floor[0], ((x - self.player.x + self.screen_x_buffer) * 32,
                                                       (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] == 0:
                         self.screen.blit(self.warp, ((x - self.player.x + self.screen_x_buffer) * 32,
                                                      (y - self.player.y + self.screen_y_buffer) * 32))
+
+        # draw enemies on the screen
+        if len(self.current_level.npcs) > 0:
+            for npc in self.current_level.npcs:
+                if npc.x_pos in range(len(self.current_map[0])) and npc.y_pos in range(len(self.current_map)):
+                    self.screen.blit(npc.image, ((npc.x_pos - self.player.x + self.screen_x_buffer) * 32,
+                                                 (npc.y_pos - self.player.y + self.screen_y_buffer) * 32))
 
         # draw player in the center of the screen
         self.screen.blit(self.player.image, (self.screen_x_buffer * 32, self.screen_y_buffer * 32))
