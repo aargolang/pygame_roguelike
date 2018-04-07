@@ -51,7 +51,7 @@ def load_image_rect(name, colorkey=None):
 
 
 # load_image
-# concatinates the name to the graphics directory
+# concatenates the name to the graphics directory
 # and checks to see if that file path works,
 # throws an error if unsuccessful
 # scales up graphics by 2
@@ -77,8 +77,8 @@ def load_image(name):
 # stores player image and rect
 # TODO: add player stats when battle system is made
 class Player(pygame.sprite.Sprite):                 # initialize
-    start_x = 27                                    # global starting x pos                                     DEBUG
-    start_y = 27                                    # global starting y pos                                     DEBUG
+    start_x = 22                                    # global starting x pos                                     DEBUG
+    start_y = 20                                    # global starting y pos                                     DEBUG
 
     def __init__(self):                             # player default constructor
         pygame.sprite.Sprite.__init__(self)         # initialize player as a default sprite
@@ -128,22 +128,26 @@ class Level:
 # TODO: add current_map as char array
 # TODO: define load_level() function
 class Game:
-    bg_color = (0, 0, 0)                            # background filler color
-    screen_resolution = (544, 544)                  # on screen window size
+    background_color = (0, 0, 0)
+    # screen size (in 32*32 squares) needs to be odd numbers because of player in center
+    screen_size = (45,23)
+    screen_resolution = (screen_size[0] * 32, screen_size[1] * 32)
+    screen_x_buffer = int((screen_size[0]-1)/2)
+    screen_y_buffer = int((screen_size[1]-1)/2)
+    key_delay = 200
+    key_repeat = 50
+    os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0, 32)
 
-    def __init__(self):                             # def constructor for game
-        self.screen = pygame.display.set_mode(      # set screen size to...
-            self.screen_resolution                  # screen_resolution
-        )
+    def __init__(self):
+        pygame.init()
+        pygame.key.set_repeat(self.key_delay, self.key_repeat)
+        self.screen = pygame.display.set_mode(self.screen_resolution)
 
+        # setup display and background color/size
         pygame.display.set_icon(pygame.image.load('graphics/icon.bmp'))
         pygame.display.set_caption('u can sav the world!')
-        self.background = pygame.Surface(           # set background to...
-            self.screen_resolution                  # size of screen
-        ).convert()                                 # convert background to a surface
-        self.background.fill(                       # set background to...
-            self.bg_color                           # bg_color
-        )
+        self.background = pygame.Surface(self.screen_resolution)
+        self.background.fill(self.background_color)
 
         # declare levels
         self.town_level = Level('town.csv')
@@ -153,43 +157,36 @@ class Game:
 
         # set warps
         self.town_level.set_warps({
-            '33,27': LevelWarp(self.dungeon_1_level, 25, 24),
-            '22,12': LevelWarp(self.dungeon_1_level, 16, 8),
-            '54,25': LevelWarp(self.forest_1_level, 10, 38)
+            '25,19': LevelWarp(self.dungeon_1_level, 17, 18),
+            '14,4': LevelWarp(self.dungeon_1_level, 8, 2),
+            '46,17': LevelWarp(self.forest_1_level, 2, 30)
         })
         self.dungeon_1_level.set_warps({
-            '25,25': LevelWarp(self.town_level, 32, 27),
-            '16,7': LevelWarp(self.town_level, 21, 12),
-            '44,24': LevelWarp(self.dungeon_2_level, 13, 10)
+            '17,19': LevelWarp(self.town_level, 24, 19),
+            '8,1': LevelWarp(self.town_level, 13, 4),
+            '36,18': LevelWarp(self.dungeon_2_level, 5, 2)
         })
         self.dungeon_2_level.set_warps({
-            '13,9': LevelWarp(self.dungeon_1_level, 43, 24)
+            '5,1': LevelWarp(self.dungeon_1_level, 35, 18)
         })
         self.forest_1_level.set_warps({
-            '9,38': LevelWarp(self.town_level, 53, 25)
+            '1,30': LevelWarp(self.town_level, 45, 17)
         })
 
+        # initialize game to first level
         self.current_map = None
         self.current_level = self.town_level
         self.load_level(self.town_level)
+        self.player = Player()
 
-        self.player = Player()                      # initialize a player
-
-        # TODO fix this hacky loading of walls and floors
         # make the wall and floor class
         self.floor = load_image(os.path.join(graphics_dir, "floor.bmp"))
-        # dimensions = (2 * self.floor.get_width(), 2 * self.floor.get_height())
-        # self.floor = pygame.transform.scale(self.floor, dimensions)
-
         self.wall = load_image(os.path.join(graphics_dir, "wall.bmp"))
-        # dimensions = (2 * self.wall.get_width(), 2 * self.wall.get_height())
-        # self.wall = pygame.transform.scale(self.wall, dimensions)
         self.warp = load_image(os.path.join(graphics_dir, "warp.bmp"))
 
     # LOAD LEVEL
     # load the level passed in into memory
     def load_level(self, lev):
-
         if self.current_map is not None:
             self.current_map.clear()
         self.current_map = list(csv.reader(open(lev.level_path)))
@@ -210,6 +207,7 @@ class Game:
                 elif self.current_map[i][j] == '3':
                     self.current_map[i][j] = 101
 
+        # set the level warps in the current_map
         for a, b in lev.warp_list.items():
             warp_point = a.split(',')
             self.current_map[int(warp_point[1])][int(warp_point[0])] = 0
@@ -219,15 +217,21 @@ class Game:
     # returns false when game is ready to quit
     def control_tick(self):
 
+        if joystick_count > 0:
+            joystick = pygame.joystick.Joystick(0)
+            joystick.init()
+
         pos_right = self.current_map[self.player.y][self.player.x + 1]
         pos_left = self.current_map[self.player.y][self.player.x - 1]
         pos_up = self.current_map[self.player.y - 1][self.player.x]
         pos_down = self.current_map[self.player.y + 1][self.player.x]
-        # pos = self.current_map[self.player.y][self.player.x]
 
         while True:
             # improve performance by waiting to draw until new event is on event queue
             event = pygame.event.wait()
+            if event.type == pygame.QUIT:
+                return False
+
             if event.type == KEYDOWN:
                 if event.key == K_RIGHT and (pos_right < 61):
                     self.player.x += 1
@@ -244,33 +248,27 @@ class Game:
                 elif event.key == K_ESCAPE:
                     return False
 
-
-        # xinput controls
-        # currently sends the player at lightspeed in whatever direction
-        # needs delay or something
-        if joystick_count > 0:
-            # making code less wordy
-            player = self.player
-            joystick = pygame.joystick.Joystick(0)
-            joystick.init()
-            hat = joystick.get_hat(0)
-            if hat == (1, 0):
-                player.x += 1
-            if hat == (-1, 0):
-                player.x -= 1
-            if hat == (0, 1):
-                player.y -= 1
-            if hat == (0, -1):
-                player.y += 1
-
-        return True
+            # xinput controls
+            # need to implement repeat on hold down. no pygame methods available for this
+            if event.type == JOYHATMOTION:
+                hat = joystick.get_hat(0)
+                if hat == (1, 0) and (pos_right < 61):
+                    self.player.x += 1
+                    return True
+                if hat == (-1, 0) and (pos_left < 61):
+                    self.player.x -= 1
+                    return True
+                if hat == (0, 1) and (pos_up < 61):
+                    self.player.y -= 1
+                    return True
+                if hat == (0, -1) and (pos_down < 61):
+                    self.player.y += 1
+                    return True
 
     # DRAW TICK
     # this function handles all of the rendering functionality
     # has no return value
     def draw_tick(self):
-        self.screen.blit(self.background, (0, 0))
-
         # check for warp
         pos = self.current_map[self.player.y][self.player.x]
         if pos == 0:
@@ -285,17 +283,22 @@ class Game:
         # draw the current_map matrix
         # scroll the map based on the player
         # TODO: fix this to include variable resolution values
-        for x in range(self.player.x - 8, self.player.x + 9):
-            for y in range(self.player.y - 8, self.player.y + 9):
-                if self.current_map[y][x] > 60:
-                    self.screen.blit(self.wall, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
-                elif self.current_map[y][x] > 0:
-                    self.screen.blit(self.floor, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
-                elif self.current_map[y][x] == 0:
-                    self.screen.blit(self.warp, ((x - self.player.x + 8) * 32, (y - self.player.y + 8) * 32))
+        self.screen.blit(self.background, (0, 0))
+        for x in range(self.player.x - self.screen_x_buffer, self.player.x + self.screen_x_buffer + 1):
+            for y in range(self.player.y - self.screen_y_buffer, self.player.y + self.screen_y_buffer + 1):
+                if x in range(len(self.current_map[0])) and y in range(len(self.current_map)):
+                    if self.current_map[y][x] > 60:
+                        self.screen.blit(self.wall, ((x - self.player.x + self.screen_x_buffer) * 32,
+                                                     (y - self.player.y + self.screen_y_buffer) * 32))
+                    elif self.current_map[y][x] > 0:
+                        self.screen.blit(self.floor, ((x - self.player.x + self.screen_x_buffer) * 32,
+                                                      (y - self.player.y + self.screen_y_buffer) * 32))
+                    elif self.current_map[y][x] == 0:
+                        self.screen.blit(self.warp, ((x - self.player.x + self.screen_x_buffer) * 32,
+                                                     (y - self.player.y + self.screen_y_buffer) * 32))
 
         # draw player in the center of the screen
-        self.screen.blit(self.player.image, (8 * 32, 8 * 32))
+        self.screen.blit(self.player.image, (self.screen_x_buffer * 32, self.screen_y_buffer * 32))
         pygame.display.flip()
 
     # main game loop
@@ -308,8 +311,6 @@ class Game:
 
 
 def main():
-    pygame.init()
-    pygame.key.set_repeat(200, 50)
     new_game = Game()
     new_game.run()
 
