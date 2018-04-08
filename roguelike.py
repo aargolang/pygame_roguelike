@@ -4,12 +4,10 @@ import csv
 from pygame.locals import *
 from pygame.compat import geterror
 
-pygame.mixer.init(22050, -16, 8, 4096)
-
-# TODO
-# - possibly reduce memory usage for large maps by only storing the walls
-# - figure out how to load enemies into the levels
-# - clean up floor and wall graphics implementation
+# initialize game essentials
+pygame.mixer.init(22050, -16, 8, 4096)      # not currently used
+pygame.font.init()
+pygame.joystick.init()
 
 # set global varbarians to the source folder
 # and subfolders
@@ -19,7 +17,6 @@ sound_dir = os.path.join(main_dir, 'sound')
 level_dir = os.path.join(main_dir, 'levels')
 
 # xinput settings
-pygame.joystick.init()
 joystick_count = pygame.joystick.get_count()
 
 
@@ -96,16 +93,6 @@ class LevelWarp:
         self.new_y = y
 
 
-# levels character values by convention
-# corresponding wall floor class is +/- 60
-# floors 1('.'):        1 - 20
-# floors 2(','):        21 - 40
-# floors 3('`'):        41 - 60
-# walls 1('1'):         61 - 80
-# walls 2('2'):         81 - 100
-# walls 3('3'):         101 - 120
-# warp:                 0
-# nullspace('_'):       -1
 class Level:
     def __init__(self, level_p, tile_p=None):
         self.level_path = os.path.join(level_dir, level_p)
@@ -145,7 +132,9 @@ class Friendly(pygame.sprite.Sprite):
 # TODO: add wall member as array of tiles
 # TODO: add floor member as array of tiles
 class Game:
-    background_color = (0, 0, 0)
+    black = (0, 0, 0)
+    white = (255, 255, 255)
+    background_color = black
     # screen size (in 32*32 squares) needs to be odd numbers because of player in center
     screen_size = (45, 23)
     screen_resolution = (screen_size[0] * 32, screen_size[1] * 32)
@@ -157,6 +146,11 @@ class Game:
 
     def __init__(self):
         pygame.init()
+        # self.font_1 = pygame.font.Font('fonts/Perfect DOS VGA 437.ttf', 32)
+        # self.font_1 = pygame.font.Font('fonts/Perfect DOS VGA 437 WIN.ttf', 32)
+        self.font_1 = pygame.font.Font('fonts/Moder DOS 437.ttf', 32)
+        # self.font_1 = pygame.font.Font('fonts/victor-pixel.ttf', 32)
+
         pygame.key.set_repeat(self.key_delay, self.key_repeat)
         self.screen = pygame.display.set_mode(self.screen_resolution)
 
@@ -199,17 +193,19 @@ class Game:
         self.town_level.add_npc(Friendly(36, 29))
 
         # set enemies
-        self.dungeon_1_level.add_npc(Enemy(4, 18))
-        self.dungeon_1_level.add_npc(Enemy(4, 4))
-        self.dungeon_1_level.add_npc(Enemy(32, 2))
-        self.dungeon_1_level.add_npc(Enemy(32, 17))
-        self.dungeon_1_level.add_npc(Enemy(32, 21))
+        # self.dungeon_1_level.add_npc(Enemy(4, 18))      # new game
+        # self.dungeon_1_level.add_npc(Enemy(4, 4))       # new game
+        # self.dungeon_1_level.add_npc(Enemy(32, 2))      # new game
+        # self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
+        # self.dungeon_1_level.add_npc(Enemy(32, 21))     # new game
 
         # initialize game to first level
         self.current_map = None
-        self.current_level = self.town_level
-        self.load_level(self.town_level)
-        self.player = Player()
+        self.current_level = None
+        self.player = None
+        # self.current_level = self.town_level            # new game
+        # self.load_level(self.town_level)                # new game
+        # self.player = Player()                          # new game
 
         # make the wall and floor class
         self.floor = []
@@ -222,6 +218,16 @@ class Game:
 
     # LOAD LEVEL
     # load the level passed in into memory
+    # levels character values by convention
+    # corresponding wall floor class is +/- 60
+    # floors 1('.'):        1 - 20
+    # floors 2(','):        21 - 40
+    # floors 3('`'):        41 - 60
+    # walls 1('1'):         61 - 80
+    # walls 2('2'):         81 - 100
+    # walls 3('3'):         101 - 120
+    # warp:                 0
+    # nullspace('_'):       -1
     def load_level(self, lev):
         if self.current_map is not None:
             self.current_map.clear()
@@ -325,21 +331,21 @@ class Game:
                 if x in range(len(self.current_map[0])) and y in range(len(self.current_map)):
                     if self.current_map[y][x] > 80:
                         self.screen.blit(self.wall[1], ((x - self.player.x + self.screen_x_buffer) * 32,
-                                                     (y - self.player.y + self.screen_y_buffer) * 32))
+                                                        (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] > 60:
                         self.screen.blit(self.wall[0], ((x - self.player.x + self.screen_x_buffer) * 32,
-                                                         (y - self.player.y + self.screen_y_buffer) * 32))
+                                                        (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] > 20:
                         self.screen.blit(self.floor[1], ((x - self.player.x + self.screen_x_buffer) * 32,
-                                                      (y - self.player.y + self.screen_y_buffer) * 32))
+                                                         (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] > 0:
                         self.screen.blit(self.floor[0], ((x - self.player.x + self.screen_x_buffer) * 32,
-                                                      (y - self.player.y + self.screen_y_buffer) * 32))
+                                                         (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] == 0:
                         self.screen.blit(self.warp, ((x - self.player.x + self.screen_x_buffer) * 32,
                                                      (y - self.player.y + self.screen_y_buffer) * 32))
 
-        # draw enemies on the screen
+        # draw npcs on the screen
         if len(self.current_level.npcs) > 0:
             for npc in self.current_level.npcs:
                 if npc.x_pos in range(len(self.current_map[0])) and npc.y_pos in range(len(self.current_map)):
@@ -351,17 +357,109 @@ class Game:
         pygame.display.flip()
 
     # main game loop
-    def run(self):
-        while 1:
+    def play(self):
+        while True:
             self.draw_tick()
             # return if control returns false
             if not self.control_tick():
                 return
 
+    def new_game(self):
+
+        self.current_level = self.town_level    # new game
+        self.load_level(self.town_level)        # new game
+        self.player = Player()                  # new game
+        self.dungeon_1_level.add_npc(Enemy(4, 18))      # new game
+        self.dungeon_1_level.add_npc(Enemy(4, 4))       # new game
+        self.dungeon_1_level.add_npc(Enemy(32, 2))      # new game
+        self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
+        self.dungeon_1_level.add_npc(Enemy(32, 21))     # new game
+        self.play()
+
+    def main_menu(self):
+        resolution_672_480 = (21, 15)
+        resolution_1056_608 = (33, 19)
+        resolution_1440_736 = (45, 23)
+
+        while True:
+            # declare menues
+            menu_main = [
+                self.font_1.render('(n)ew game', False, self.white),
+                self.font_1.render('change (r)esolution', False, self.white),
+                self.font_1.render('(q)uit', False, self.white)
+            ]
+            menu_resolution = [
+                self.font_1.render('(1) 672x480', False, self.white),
+                self.font_1.render('(2) 1056x608', False, self.white),
+                self.font_1.render('(3) 1440x736', False, self.white)
+
+            ]
+
+            # draw main menu to screen
+            self.screen.blit(self.background, (0, 0))
+            for i in range(len(menu_main)):
+                self.screen.blit(menu_main[i],
+                                 (32 * int(self.screen_x_buffer / 2),
+                                 (32 * int(self.screen_y_buffer / 2)) + (32 * i)))
+
+            pygame.display.flip()
+            event = pygame.event.wait()
+
+            # get user input
+            if event.type == KEYDOWN:
+                if event.key == K_n:
+                    return 'new'
+                elif event.key == K_r:
+                    res_menu = True
+                    while res_menu is True:
+                        # display resolution menu
+                        self.screen.blit(self.background, (0, 0))
+                        for i in range(len(menu_resolution)):
+                            self.screen.blit(menu_resolution[i],
+                                             (32 * int(self.screen_x_buffer / 2),
+                                              (32 * int(self.screen_y_buffer / 2)) + (32 * i)))
+
+                        pygame.display.flip()
+                        event = pygame.event.wait()
+
+                        # get user input
+                        if event.type == KEYDOWN:
+                            if event.key == K_1:
+                                self.screen_size = resolution_672_480
+                                res_menu = False
+                            elif event.key == K_2:
+                                self.screen_size = resolution_1056_608
+                                res_menu = False
+                            elif event.key == K_3:
+                                self.screen_size = resolution_1440_736
+                                res_menu = False
+
+                        # adjust game to new resolution
+                        self.screen_resolution = (self.screen_size[0] * 32, self.screen_size[1] * 32)
+                        self.screen_x_buffer = int((self.screen_size[0]-1)/2)
+                        self.screen_y_buffer = int((self.screen_size[1]-1)/2)
+                        self.screen = pygame.display.set_mode(self.screen_resolution)
+                        self.background = pygame.Surface(self.screen_resolution)
+                        self.background.fill(self.background_color)
+
+                elif event.key == K_q:
+                    return 'quit'
+                elif event.key == K_ESCAPE:
+                    return 'quit'
+            elif event.type == pygame.QUIT:
+                return 'quit'
+
+    def run(self):
+        selection = self.main_menu()
+        if selection == 'new':
+            self.new_game()
+        elif selection == 'quit':
+            return
+
 
 def main():
-    new_game = Game()
-    new_game.run()
+    game = Game()
+    game.run()
 
     return
 
