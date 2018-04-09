@@ -25,25 +25,25 @@ joystick_count = pygame.joystick.get_count()
 # and checks to see if that file path works, throws an error
 # if unsuccessful
 # returns: image, rect
-def load_image_rect(name, colorkey=None):
-    """loads image and rect for sprites usually"""
-    fullpath = os.path.join(graphics_dir, name)
-    try:
-        image = pygame.image.load(fullpath)
-    except pygame.error:
-        print('cannot load image', fullpath)
-        raise SystemExit(str(geterror()))
-    image = image.convert()
-    if colorkey is not None:
-        if colorkey is -1:
-            colorkey = image.get_at((0, 0))
-        image.set_colorkey(colorkey, RLEACCEL)
-
-    # upscale loaded images by 2x and 2y
-    dimensions = (2 * image.get_width(), 2 * image.get_height())
-    image = pygame.transform.scale(image, dimensions)
-
-    return image, image.get_rect()
+# def load_image_rect(name, colorkey=None):
+#     """loads image and rect for sprites usually"""
+#     fullpath = os.path.join(graphics_dir, name)
+#     try:
+#         image = pygame.image.load(fullpath)
+#     except pygame.error:
+#         print('cannot load image', fullpath)
+#         raise SystemExit(str(geterror()))
+#     image = image.convert()
+#     if colorkey is not None:
+#         if colorkey is -1:
+#             colorkey = image.get_at((0, 0))
+#         image.set_colorkey(colorkey, RLEACCEL)
+#
+#     # upscale loaded images by 2x and 2y
+#     dimensions = (2 * image.get_width(), 2 * image.get_height())
+#     image = pygame.transform.scale(image, dimensions)
+#
+#     return image, image.get_rect()
 
 
 # load_image
@@ -59,7 +59,7 @@ def load_image(name):
     except pygame.error:
         print('cannot load image', fullpath)
         raise SystemExit(str(geterror()))
-    image = image.convert()
+    # image = image.convert()
 
     # upscale loaded images by 2x and 2y
     dimensions = (2 * image.get_width(), 2 * image.get_height())
@@ -78,8 +78,8 @@ class Player(pygame.sprite.Sprite):                 # initialize
 
     def __init__(self):                             # player default constructor
         pygame.sprite.Sprite.__init__(self)         # initialize player as a default sprite
-        self.image, self.rect = load_image_rect(    # load player.bmp
-            "player.bmp"
+        self.image = load_image(    # load player.bmp
+            "player.png"
         )
 
         self.x = self.start_x                       # set starting x position
@@ -112,7 +112,7 @@ class Level:
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
-        self.image, self.rect = load_image_rect('enemy.bmp')
+        self.image = load_image('enemy.png')
         self.x_pos = x
         self.y_pos = y
 
@@ -120,7 +120,7 @@ class Enemy(pygame.sprite.Sprite):
 class Friendly(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
-        self.image, self.rect = load_image_rect('friendly.bmp')
+        self.image = load_image('friendly.png')
         self.x_pos = x
         self.y_pos = y
 
@@ -132,8 +132,9 @@ class Friendly(pygame.sprite.Sprite):
 # TODO: add wall member as array of tiles
 # TODO: add floor member as array of tiles
 class Game:
-    black = (0, 0, 0)
-    white = (255, 255, 255)
+    black = (20, 12, 28)
+    white = (223, 239, 215)
+    blue = (89, 125, 207)
     background_color = black
     # screen size (in 32*32 squares) needs to be odd numbers because of player in center
     screen_size = (45, 23)
@@ -148,14 +149,14 @@ class Game:
         pygame.init()
         # self.font_1 = pygame.font.Font('fonts/Perfect DOS VGA 437.ttf', 32)
         # self.font_1 = pygame.font.Font('fonts/Perfect DOS VGA 437 WIN.ttf', 32)
-        self.font_1 = pygame.font.Font('fonts/Moder DOS 437.ttf', 32)
-        # self.font_1 = pygame.font.Font('fonts/victor-pixel.ttf', 32)
+        # self.font_1 = pygame.font.Font('fonts/Moder DOS 437.ttf', 32)
+        self.font_1 = pygame.font.Font('fonts/victor-pixel.ttf', 32)
 
         pygame.key.set_repeat(self.key_delay, self.key_repeat)
         self.screen = pygame.display.set_mode(self.screen_resolution)
 
         # setup display and background color/size
-        pygame.display.set_icon(pygame.image.load('graphics/icon.bmp'))
+        pygame.display.set_icon(pygame.image.load('graphics/icon.png'))
         pygame.display.set_caption('u can sav the world!')
         self.background = pygame.Surface(self.screen_resolution)
         self.background.fill(self.background_color)
@@ -209,12 +210,12 @@ class Game:
 
         # make the wall and floor class
         self.floor = []
-        self.floor.append(load_image(os.path.join(graphics_dir, "floor_1.bmp")))
-        self.floor.append(load_image(os.path.join(graphics_dir, "floor_2.bmp")))
+        self.floor.append(load_image(os.path.join(graphics_dir, "floor_1.png")))
+        self.floor.append(load_image(os.path.join(graphics_dir, "floor_2.png")))
         self.wall = []
-        self.wall.append(load_image(os.path.join(graphics_dir, "wall_1.bmp")))
-        self.wall.append(load_image(os.path.join(graphics_dir, "wall_2.bmp")))
-        self.warp = load_image(os.path.join(graphics_dir, "warp.bmp"))
+        self.wall.append(load_image(os.path.join(graphics_dir, "wall_1.png")))
+        self.wall.append(load_image(os.path.join(graphics_dir, "wall_2.png")))
+        self.warp = load_image(os.path.join(graphics_dir, "warp.png"))
 
     # LOAD LEVEL
     # load the level passed in into memory
@@ -365,7 +366,6 @@ class Game:
                 return
 
     def new_game(self):
-
         self.current_level = self.town_level    # new game
         self.load_level(self.town_level)        # new game
         self.player = Player()                  # new game

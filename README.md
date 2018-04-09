@@ -14,6 +14,9 @@ Directions:
 
 
 status 4/8/18
+ + changed placeholder sprites to less crappy graphics
+ + changed method to load graphics which now allows for aplpha channel
+ + updated icon
  + added fonts
  + added basic start menu and resolution options
  + cleaned up some ugly code
