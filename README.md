@@ -12,28 +12,18 @@ Directions:
 	Game:
 	directional keys to move/attack/talk/trade/pay respects/not die/save the world
 
+last updated: 4/14/18
 
-status 4/8/18
- + changed placeholder sprites to less crappy graphics
- + changed method to load graphics which now allows for aplpha channel
- + updated icon
- + added fonts
- + added basic start menu and resolution options
- + cleaned up some ugly code
- + successfully shut PEP8 up about my coding style
+status:
+ + music! sorry if its too loud or annoying. will be developing more themes in the future
+ + enemies now follow you with basic AI but they get stuck underneat player because no collision interaction
  
 current projects:
- - clean up floor and wall graphics implementation
+ - create an interface that includes health, game messages, threat level, minimap(maybe?plz?), pretty stuff
+ - save generated level files per-game to ensure randomized floor tiles are consistent in game
+ - actually crate a d20 battle system
  - create wall and floor objects that contain the relevant tileset
- - implement d20 battle system 
- - get xinput delay to work like keyboard controls
  - declutter drawing code
- - fix crackly audio in .mod music
- - get os resolution in order to center the screen on any system and dynamically designate resolution
  - make menu selectable with directional keys and enter
- - convert graphics to color included color pallet
- - decide on enemy movement algorithm
- - convert NPCs lists into Srite groups for easy deleting and rendering
  - implement a dialoge system
- - randomize floor tiles when I have more floor tiles
  

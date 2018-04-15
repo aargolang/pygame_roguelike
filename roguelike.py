@@ -1,6 +1,7 @@
 import os
 import pygame
 import csv
+import random
 from pygame.locals import *
 from pygame.compat import geterror
 
@@ -16,6 +17,7 @@ graphics_dir = os.path.join(main_dir, 'graphics')
 sound_dir = os.path.join(main_dir, 'sound')
 level_dir = os.path.join(main_dir, 'levels')
 
+
 # xinput settings
 joystick_count = pygame.joystick.get_count()
 
@@ -25,25 +27,25 @@ joystick_count = pygame.joystick.get_count()
 # and checks to see if that file path works, throws an error
 # if unsuccessful
 # returns: image, rect
-# def load_image_rect(name, colorkey=None):
-#     """loads image and rect for sprites usually"""
-#     fullpath = os.path.join(graphics_dir, name)
-#     try:
-#         image = pygame.image.load(fullpath)
-#     except pygame.error:
-#         print('cannot load image', fullpath)
-#         raise SystemExit(str(geterror()))
-#     image = image.convert()
-#     if colorkey is not None:
-#         if colorkey is -1:
-#             colorkey = image.get_at((0, 0))
-#         image.set_colorkey(colorkey, RLEACCEL)
-#
-#     # upscale loaded images by 2x and 2y
-#     dimensions = (2 * image.get_width(), 2 * image.get_height())
-#     image = pygame.transform.scale(image, dimensions)
-#
-#     return image, image.get_rect()
+def load_image_rect(name, colorkey=None):
+    """loads image and rect for sprites usually"""
+    fullpath = os.path.join(graphics_dir, name)
+    try:
+        image = pygame.image.load(fullpath)
+    except pygame.error:
+        print('cannot load image', fullpath)
+        raise SystemExit(str(geterror()))
+    image = image.convert()
+    if colorkey is not None:
+        if colorkey is -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey, RLEACCEL)
+
+    # upscale loaded images by 2x and 2y
+    dimensions = (2 * image.get_width(), 2 * image.get_height())
+    image = pygame.transform.scale(image, dimensions)
+
+    return image, image.get_rect()
 
 
 # load_image
@@ -59,7 +61,6 @@ def load_image(name):
     except pygame.error:
         print('cannot load image', fullpath)
         raise SystemExit(str(geterror()))
-    # image = image.convert()
 
     # upscale loaded images by 2x and 2y
     dimensions = (2 * image.get_width(), 2 * image.get_height())
@@ -73,17 +74,15 @@ def load_image(name):
 # stores player image and rect
 # TODO: add player stats when battle system is made
 class Player(pygame.sprite.Sprite):                 # initialize
-    start_x = 22                                    # global starting x pos                                     DEBUG
-    start_y = 20                                    # global starting y pos                                     DEBUG
-
-    def __init__(self):                             # player default constructor
+    def __init__(self, init_x, init_y):             # player default constructor
         pygame.sprite.Sprite.__init__(self)         # initialize player as a default sprite
-        self.image = load_image(    # load player.bmp
+        self.image = load_image(                    # load player.bmp
             "player.png"
         )
 
-        self.x = self.start_x                       # set starting x position
-        self.y = self.start_y                       # set starting y position
+        self.x = init_x                             # set starting x position
+        self.y = init_y                             # set starting y position
+        self.alignment = 'GOOD'
 
 
 class LevelWarp:
@@ -104,25 +103,101 @@ class Level:
 
     def set_warps(self, warps):
         self.warp_list = warps
-
+        
     def add_npc(self, npc):
         self.npcs.append(npc)
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x_pos, y_pos):
         pygame.sprite.Sprite.__init__(self)
         self.image = load_image('enemy.png')
-        self.x_pos = x
-        self.y_pos = y
+        self.x = x_pos
+        self.y = y_pos
+        self.agro = False
+        self.alignment = 'BAD'
+
+    def update(self, player, level_map):
+        sight_distance = 6
+        x_dif = player.x - self.x
+        if x_dif != 0:
+            x_sign = int(x_dif/abs(x_dif))
+        else:
+            x_sign = 0
+        y_dif = player.y - self.y
+        if y_dif != 0:
+            y_sign = int(y_dif/abs(y_dif))
+        else:
+            y_sign = 0
+
+        # TODO remove this placeholder code
+        # placeholder player detection code
+        if abs(x_dif) <= sight_distance and abs(y_dif) <= sight_distance:
+            if player.alignment is 'GOOD':
+                # print('enemy agro')
+                self.agro = True
+
+        if self.agro is True:
+            if abs(x_dif) > abs(y_dif):
+                # print(level_map[self.x + x_sign][self.y])
+                if level_map[self.y][self.x + x_sign] < 61:
+                    self.x += x_sign
+                elif level_map[self.y + y_sign][self.x] < 61:
+                    self.y += y_sign
+            elif abs(x_dif) <= abs(y_dif):
+                if level_map[self.y + y_sign][self.x] < 61:
+                    self.y += y_sign
+                elif level_map[self.y][self.x + x_sign] < 61:
+                    self.x += x_sign
 
 
 class Friendly(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x_pos, y_pos):
         pygame.sprite.Sprite.__init__(self)
         self.image = load_image('friendly.png')
-        self.x_pos = x
-        self.y_pos = y
+        self.x = x_pos
+        self.y = y_pos
+        self.agro = False
+        self.alignment = 'GOOD'
+
+    def update(self, player, level_map):
+        sight_distance = 2
+        x_dif = self.x - player.x
+        y_dif = self.y - player.y
+
+        # TODO remove this placeholder code
+        # placeholder player detection code
+        if abs(x_dif) <= sight_distance and abs(y_dif) <= sight_distance:
+            if player.alignment is 'BAD':
+                # print('enemy agro')
+                self.agro = True
+
+        if self.agro is True:
+            if abs(x_dif) < abs(y_dif):
+                if y_dif > 0:
+                    print('go up')
+                    self.y -= 1
+                else:
+                    print('go down')
+                    self.y += 1
+            else:
+                if x_dif < 0:
+                    print('go right')
+                    self.x += 1
+                else:
+                    print('go left')
+                    self.x -= 1
+
+
+class Chest(pygame.sprite.Sprite):
+    def __init__(self, x_pos, y_pos):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = load_image('obj_chest.png')
+        self.x = x_pos
+        self.y = y_pos
+
+    def update(self, player, level_map):
+        self.x = self.x
 
 
 # CLASS Game
@@ -147,9 +222,6 @@ class Game:
 
     def __init__(self):
         pygame.init()
-        # self.font_1 = pygame.font.Font('fonts/Perfect DOS VGA 437.ttf', 32)
-        # self.font_1 = pygame.font.Font('fonts/Perfect DOS VGA 437 WIN.ttf', 32)
-        # self.font_1 = pygame.font.Font('fonts/Moder DOS 437.ttf', 32)
         self.font_1 = pygame.font.Font('fonts/victor-pixel.ttf', 32)
 
         pygame.key.set_repeat(self.key_delay, self.key_repeat)
@@ -162,6 +234,7 @@ class Game:
         self.background.fill(self.background_color)
 
         # declare levels
+        self.test = Level('test.csv')
         self.town_level = Level('town.csv')
         self.dungeon_1_level = Level('dungeon_1.csv')
         self.dungeon_2_level = Level('dungeon_2.csv')
@@ -192,26 +265,27 @@ class Game:
         self.town_level.add_npc(Friendly(13, 32))
         self.town_level.add_npc(Friendly(23, 27))
         self.town_level.add_npc(Friendly(36, 29))
-
-        # set enemies
-        # self.dungeon_1_level.add_npc(Enemy(4, 18))      # new game
-        # self.dungeon_1_level.add_npc(Enemy(4, 4))       # new game
-        # self.dungeon_1_level.add_npc(Enemy(32, 2))      # new game
-        # self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
-        # self.dungeon_1_level.add_npc(Enemy(32, 21))     # new game
+        self.town_level.add_npc(Chest(7, 4))
 
         # initialize game to first level
         self.current_map = None
         self.current_level = None
         self.player = None
-        # self.current_level = self.town_level            # new game
-        # self.load_level(self.town_level)                # new game
-        # self.player = Player()                          # new game
 
         # make the wall and floor class
-        self.floor = []
-        self.floor.append(load_image(os.path.join(graphics_dir, "floor_1.png")))
-        self.floor.append(load_image(os.path.join(graphics_dir, "floor_2.png")))
+        self.floor_1 = []
+
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_1.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_2.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_3.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_4.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_5.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_6.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_7.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_8.png")))
+        self.floor_1.append(load_image(os.path.join(graphics_dir, "floor_1_9.png")))
+        self.floor_2 = []
+        self.floor_2.append(load_image(os.path.join(graphics_dir, "floor_2.png")))
         self.wall = []
         self.wall.append(load_image(os.path.join(graphics_dir, "wall_1.png")))
         self.wall.append(load_image(os.path.join(graphics_dir, "wall_2.png")))
@@ -238,7 +312,26 @@ class Game:
                 if self.current_map[i][j] == '_':  # set null
                     self.current_map[i][j] = -1
                 elif self.current_map[i][j] == '.':  # set floors
-                    self.current_map[i][j] = 1
+                    rand = random.randint(1, 400)
+                    if rand > 50:
+                        self.current_map[i][j] = 1
+                    elif rand > 45:
+                        self.current_map[i][j] = 2
+                    elif rand > 40:
+                        self.current_map[i][j] = 3
+                    elif rand > 35:
+                        self.current_map[i][j] = 4
+                    elif rand > 30:
+                        self.current_map[i][j] = 5
+                    elif rand > 25:
+                        self.current_map[i][j] = 6
+                    elif rand > 20:
+                        self.current_map[i][j] = 7
+                    elif rand > 15:
+                        self.current_map[i][j] = 8
+                    else:
+                        self.current_map[i][j] = 9
+
                 elif self.current_map[i][j] == ',':
                     self.current_map[i][j] = 21
                 elif self.current_map[i][j] == '`':
@@ -251,9 +344,13 @@ class Game:
                     self.current_map[i][j] = 101
 
         # set the level warps in the current_map
-        for a, b in lev.warp_list.items():
-            warp_point = a.split(',')
-            self.current_map[int(warp_point[1])][int(warp_point[0])] = 0
+        if lev.warp_list is not None:
+            for a, b in lev.warp_list.items():
+                warp_point = a.split(',')
+                self.current_map[int(warp_point[1])][int(warp_point[0])] = 0
+
+        # set current_level
+        self.current_level = lev
 
     # CONTROL TICK
     # this function will handle all input functions
@@ -319,7 +416,6 @@ class Game:
             if self.current_level.warp_list[position_key]:
                 warp = self.current_level.warp_list[position_key]
                 self.load_level(warp.new_level)
-                self.current_level = warp.new_level
                 self.player.x = warp.new_x
                 self.player.y = warp.new_y
 
@@ -337,21 +433,24 @@ class Game:
                         self.screen.blit(self.wall[0], ((x - self.player.x + self.screen_x_buffer) * 32,
                                                         (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] > 20:
-                        self.screen.blit(self.floor[1], ((x - self.player.x + self.screen_x_buffer) * 32,
+                        self.screen.blit(self.floor_2[0], ((x - self.player.x + self.screen_x_buffer) * 32,
                                                          (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] > 0:
-                        self.screen.blit(self.floor[0], ((x - self.player.x + self.screen_x_buffer) * 32,
-                                                         (y - self.player.y + self.screen_y_buffer) * 32))
+                        self.screen.blit(self.floor_1[self.current_map[y][x]-1],
+                                         ((x - self.player.x + self.screen_x_buffer) * 32,
+                                          (y - self.player.y + self.screen_y_buffer) * 32))
                     elif self.current_map[y][x] == 0:
                         self.screen.blit(self.warp, ((x - self.player.x + self.screen_x_buffer) * 32,
                                                      (y - self.player.y + self.screen_y_buffer) * 32))
 
-        # draw npcs on the screen
+        # update and draw npcs on the screen
         if len(self.current_level.npcs) > 0:
             for npc in self.current_level.npcs:
-                if npc.x_pos in range(len(self.current_map[0])) and npc.y_pos in range(len(self.current_map)):
-                    self.screen.blit(npc.image, ((npc.x_pos - self.player.x + self.screen_x_buffer) * 32,
-                                                 (npc.y_pos - self.player.y + self.screen_y_buffer) * 32))
+                npc.update(self.player, self.current_map)
+
+                if npc.x in range(len(self.current_map[0])) and npc.y in range(len(self.current_map)):
+                    self.screen.blit(npc.image, ((npc.x - self.player.x + self.screen_x_buffer) * 32,
+                                                 (npc.y - self.player.y + self.screen_y_buffer) * 32))
 
         # draw player in the center of the screen
         self.screen.blit(self.player.image, (self.screen_x_buffer * 32, self.screen_y_buffer * 32))
@@ -366,14 +465,15 @@ class Game:
                 return
 
     def new_game(self):
-        self.current_level = self.town_level    # new game
-        self.load_level(self.town_level)        # new game
-        self.player = Player()                  # new game
+        self.load_level(self.town_level)                # starting level
+        self.player = Player(22, 20)                    # new game
         self.dungeon_1_level.add_npc(Enemy(4, 18))      # new game
         self.dungeon_1_level.add_npc(Enemy(4, 4))       # new game
         self.dungeon_1_level.add_npc(Enemy(32, 2))      # new game
         self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
         self.dungeon_1_level.add_npc(Enemy(32, 21))     # new game
+        self.test.add_npc(Enemy(3, 3))
+        self.test.add_npc(Friendly(31, 20))
         self.play()
 
     def main_menu(self):
@@ -452,7 +552,11 @@ class Game:
     def run(self):
         selection = self.main_menu()
         if selection == 'new':
+            # TODO music needs to change based on level
+            pygame.mixer.music.load('music/level_1.ogg')
+            pygame.mixer.music.play(-1)
             self.new_game()
+
         elif selection == 'quit':
             return
 
