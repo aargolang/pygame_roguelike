@@ -137,18 +137,37 @@ class Enemy(pygame.sprite.Sprite):
                 # print('enemy agro')
                 self.agro = True
 
+        # basic enemy pathing
+        # TODO: this might have a better solution that just being a forest of 'if' statements
         if self.agro is True:
             if abs(x_dif) > abs(y_dif):
-                # print(level_map[self.x + x_sign][self.y])
+                # if player is closer in the x dimension
                 if level_map[self.y][self.x + x_sign] < 61:
-                    self.x += x_sign
+                    # and there is no wall in that x direction,
+                    if abs(x_dif) > 1:
+                        # and the player is not next them in the x directioN
+                        self.x += x_sign
+                        # move in that direction
                 elif level_map[self.y + y_sign][self.x] < 61:
-                    self.y += y_sign
+                    # if there is a wall in the closer x direction,
+                    if abs(y_dif) > 1:
+                        # and the player is not next them in the y direction
+                        self.y += y_sign
+                        # move in the closer y direction
             elif abs(x_dif) <= abs(y_dif):
+                # if player is closer in the y dimension
                 if level_map[self.y + y_sign][self.x] < 61:
-                    self.y += y_sign
+                    # and there is no wall in that y direction
+                    if abs(y_dif) > 1:
+                        # and the player is not next to them in the y direction
+                        self.y += y_sign
+                        # move in the closer y direction
                 elif level_map[self.y][self.x + x_sign] < 61:
-                    self.x += x_sign
+                    # if there is a wall in the closer y direction
+                    if abs(x_dif) > 1:
+                        # and the player is not next to them in the x direction
+                        self.x += x_sign
+                        # move in the closer x direction
 
 
 class Friendly(pygame.sprite.Sprite):
@@ -265,6 +284,8 @@ class Game:
         self.town_level.add_npc(Friendly(13, 32))
         self.town_level.add_npc(Friendly(23, 27))
         self.town_level.add_npc(Friendly(36, 29))
+
+        # set objects
         self.town_level.add_npc(Chest(7, 4))
 
         # initialize game to first level
@@ -361,10 +382,33 @@ class Game:
             joystick = pygame.joystick.Joystick(0)
             joystick.init()
 
-        pos_right = self.current_map[self.player.y][self.player.x + 1]
-        pos_left = self.current_map[self.player.y][self.player.x - 1]
-        pos_up = self.current_map[self.player.y - 1][self.player.x]
-        pos_down = self.current_map[self.player.y + 1][self.player.x]
+        pos_east = self.current_map[self.player.y][self.player.x + 1]
+        pos_west = self.current_map[self.player.y][self.player.x - 1]
+        pos_north = self.current_map[self.player.y - 1][self.player.x]
+        pos_south = self.current_map[self.player.y + 1][self.player.x]
+
+        # get enemies in close proximity and forbid moving in those directions
+        # need to detect enemies that are adjacent to player
+        # TODO: this is linear time and need to be improved
+        for npc in self.current_level.npcs:
+            if npc.x == self.player.x:
+                if npc.y == (self.player.y + 1):
+                    print("south")
+                    pos_south = 61
+                    # collide with npc to the south
+                elif npc.y == (self.player.y - 1):
+                    print("north")
+                    pos_north = 61
+                    # collide with npc to the north
+            elif npc.y == self.player.y:
+                if npc.x == (self.player.x + 1):
+                    print("east")
+                    pos_east = 61
+                    # collide with npc to the east
+                elif npc.x == (self.player.x - 1):
+                    print("west")
+                    pos_west = 61
+                    # collide with npc to the west
 
         while True:
             # improve performance by waiting to draw until new event is on event queue
@@ -373,16 +417,16 @@ class Game:
                 return False
 
             if event.type == KEYDOWN:
-                if event.key == K_RIGHT and (pos_right < 61):
+                if event.key == K_RIGHT and (pos_east < 61):
                     self.player.x += 1
                     return True
-                elif event.key == K_LEFT and (pos_left < 61):
+                elif event.key == K_LEFT and (pos_west < 61):
                     self.player.x -= 1
                     return True
-                elif event.key == K_UP and (pos_up < 61):
+                elif event.key == K_UP and (pos_north < 61):
                     self.player.y -= 1
                     return True
-                elif event.key == K_DOWN and (pos_down < 61):
+                elif event.key == K_DOWN and (pos_south < 61):
                     self.player.y += 1
                     return True
                 elif event.key == K_ESCAPE:
@@ -392,16 +436,16 @@ class Game:
             # need to implement repeat on hold down. no pygame methods available for this
             if event.type == JOYHATMOTION:
                 hat = joystick.get_hat(0)
-                if hat == (1, 0) and (pos_right < 61):
+                if hat == (1, 0) and (pos_east < 61):
                     self.player.x += 1
                     return True
-                if hat == (-1, 0) and (pos_left < 61):
+                if hat == (-1, 0) and (pos_west < 61):
                     self.player.x -= 1
                     return True
-                if hat == (0, 1) and (pos_up < 61):
+                if hat == (0, 1) and (pos_north < 61):
                     self.player.y -= 1
                     return True
-                if hat == (0, -1) and (pos_down < 61):
+                if hat == (0, -1) and (pos_south < 61):
                     self.player.y += 1
                     return True
 
@@ -465,12 +509,13 @@ class Game:
                 return
 
     def new_game(self):
+        # TODO: consolidate all npc spawn points
         self.load_level(self.town_level)                # starting level
         self.player = Player(22, 20)                    # new game
         self.dungeon_1_level.add_npc(Enemy(4, 18))      # new game
         self.dungeon_1_level.add_npc(Enemy(4, 4))       # new game
         self.dungeon_1_level.add_npc(Enemy(32, 2))      # new game
-        self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
+        # self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
         self.dungeon_1_level.add_npc(Enemy(32, 21))     # new game
         self.test.add_npc(Enemy(3, 3))
         self.test.add_npc(Friendly(31, 20))
@@ -553,8 +598,8 @@ class Game:
         selection = self.main_menu()
         if selection == 'new':
             # TODO music needs to change based on level
-            pygame.mixer.music.load('music/level_1.ogg')
-            pygame.mixer.music.play(-1)
+            # pygame.mixer.music.load('music/level_1.ogg')
+            # pygame.mixer.music.play(-1)
             self.new_game()
 
         elif selection == 'quit':
