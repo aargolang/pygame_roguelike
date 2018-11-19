@@ -4,26 +4,26 @@
         {
             "type": "warp",
             "next_level": "town",
-            "x_pos": 17,
+            "x_pos": 24,
             "y_pos": 19,
-            "x_dest": 24,
+            "x_dest": 17,
             "y_dest": 19
         },
         {
             "type": "warp",
             "next_level": "town",
-            "x_pos": 8,
-            "y_pos": 1,
-            "x_dest": 13,
-            "y_dest": 4
+            "x_pos": 13,
+            "y_pos": 4,
+            "x_dest": 8,
+            "y_dest": 1
         },
         {
             "type": "warp",
             "next_level": "dungeon_2",
-            "x_pos": 36,
-            "y_pos": 18,
-            "x_dest": 5,
-            "y_dest": 2
+            "x_pos": 5,
+            "y_pos": 2,
+            "x_dest": 18,
+            "y_dest": 36
         },
         {
             "type": "enemy",

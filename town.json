@@ -4,26 +4,26 @@
         {
             "type": "warp",
             "next_level": "dungeon_1",
-            "x_pos": 17,
-            "y_pos": 18,
-            "x_dest": 25,
-            "y_dest": 19
+            "x_pos": 25,
+            "y_pos": 19,
+            "x_dest": 17,
+            "y_dest": 18
         },
         {
             "type": "warp",
             "next_level": "dungeon_1",
-            "x_pos": 14,
-            "y_pos": 4,
-            "x_dest": 8,
-            "y_dest": 2
+            "x_pos": 8,
+            "y_pos": 2,
+            "x_dest": 14,
+            "y_dest": 4
         },
         {
             "type": "warp",
-            "next_level": "dungeon_1",
-            "x_pos": 46,
-            "y_pos": 17,
-            "x_dest": 2,
-            "y_dest": 30
+            "next_level": "forest_1",
+            "x_pos": 2,
+            "y_pos": 30,
+            "x_dest": 46,
+            "y_dest": 17
         },
         {
             "type": "friendly",

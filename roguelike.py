@@ -18,7 +18,7 @@ def convert_csv_to_json():
 	json_obj = {}
 	json_obj['name'] = 'town'
 	json_obj['objects'] = [
-		{"type":"warp", "next_level":"dungeon_1", "x_pos":17, "y_pos":18, "x_dest":25, "y_dest":19},
+		{"type":"warp", "next_level":"dungeon_1", "x_pos":25, "y_pos":19, "x_dest":17, "y_dest":18},
 		{"type":"warp", "next_level":"dungeon_1", "x_pos":8, "y_pos":2, "x_dest":14, "y_dest":4},
 		{"type":"warp", "next_level":"forest_1", "x_pos":2, "y_pos":30, "x_dest":46, "y_dest":17},
 		{"type":"friendly", "x_pos":10, "y_pos":7},
@@ -63,11 +63,13 @@ def convert_csv_to_json():
 	save_json('forest_1.json',json_obj)
 
 if __name__ == '__main__':
+	convert_csv_to_json()
 	l = game_engine.Level()
-	l.loadLevel('town')
+	# l.loadLevel('test')
+	# l.loadLevel('town')
 	l.loadLevel('dungeon_1')
-	l.loadLevel('dungeon_2')
-	l.loadLevel('forest_1')
+	# l.loadLevel('dungeon_2')
+	# l.loadLevel('forest_1')
 
 	game = game_engine.Game()
 	# game.run()
