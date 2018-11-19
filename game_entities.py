@@ -7,11 +7,17 @@ import game_engine
 # CLASS chest
 # object that will eventually have contentes
 class Chest(pygame.sprite.Sprite):
-    def __init__(self, x_pos, y_pos):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = game_engine.load_image('obj_chest.png')
-        self.x = x_pos
-        self.y = y_pos
+    def getRef(self):
+        return self
+
+    def __init__(self, json_obj):
+        if type(json_obj) == dict:
+            pygame.sprite.Sprite.__init__(self)
+            self.image = game_engine.load_image('obj_chest.png')
+            self.x_pos = json_obj['x_pos']
+            self.y_pos = json_obj['y_pos']
+        else:
+            raise Exception('non dictionary or json type provided')
 
     def update(self, player, level_map):
         self.x = self.x

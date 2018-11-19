@@ -1,10 +1,13 @@
+# standard libraries
 import os
 import csv
 import random
+import json
 
+# game
 import roguelike
 
-
+# 3rd party libraries
 import pygame
 from pygame.locals import *
 from pygame.compat import geterror
@@ -24,7 +27,6 @@ pygame.mixer.init(22050, -16, 8, 4096)      # not currently used
 pygame.font.init()
 pygame.joystick.init()
 joystick_count = pygame.joystick.get_count()
-
 
 # load_image
 # concatenates the name to the graphics directory
@@ -71,31 +73,116 @@ def load_image_rect(name, colorkey=None):
 
     return image, image.get_rect()
 
+# CLASS Wall
+# this class is used to represent walls in the object matrix
+# this class is a singleton when assigning use getInstance() instead of constructor
+class Wall:
+    __instance = None
+    @staticmethod
+    def getInstance():
+        if Wall.__instance == None:
+            Wall()
+        return Wall.__instance
+
+    def __init__(self):
+        if Wall.__instance != None:
+            raise Exception("this class is a singleton. use getinstance() instead")
+        else:
+            Wall.__instance = self
+
 # Class Level
-# stores the level data in memory
+# this stores the information for a level in one class 
 # TODO: make it a singleton once the levels are jsonified
-class Level:
-    def __init__(self, level_p, tile_p=None):
-        self.level_path = os.path.join(level_dir, level_p)
-        self.warp_list = None
-        self.npcs = []
+class Level():
+	_map = []
+	_object_matrix = []
+	_object_list = []
+	_json = {}
+	def __init__(self):
+		self._map = None
 
-        if tile_p is not None:
-            self.tile_path = tile_p
+	def __load_json(self, file_name):
+		with open(file_name) as infile:
+			return json.load(infile)	
 
-    def set_warps(self, warps):
-        self.warp_list = warps
+	def __save_json(self, file_name, data):
+		with open(file_name, 'w') as outfile:
+				json.dump(data, outfile, indent=4)
+
+	# handler for when objects get updated in the object matrix
+	def moveObject(self, sender, args):
+		if args[0].lower() == 'n':
+			self._object_matrix[sender.x_pos][sender.y_pos - 1] = sender.getRef()
+		elif args[0].lower() == 's': 
+			self._object_matrix[sender.x_pos][sender.y_pos + 1] = sender.getRef()
+		elif args[0].lower() == 'e':
+			self._object_matrix[sender.x_pos + 1][sender.y_pos] = sender.getRef()
+		elif args[0].lower() == 'w':
+			self._object_matrix[sender.x_pos - 1][sender.y_pos] = sender.getRef()
+
+		self._object_matrix[sender.x_pos][sender.y_pos] = None
+
+	def getObjAt(self, x, y):
+		return self._object_matrix[x][y]
+
+	def getMapAt(self, x, y):
+		return self._map[x][y]
+
+	def saveLevel(self):
+		pass
+
+	def loadLevel(self,level_name):
+		# if there is a current map then save map
+		if self._map != None:
+			self.saveLevel()
+
+		self._json = self.__load_json('levels/' + level_name + '.json')	
+		self._map = self._json['map']
+		self._object_matrix = [[None] * len(self._map[0]) for i in range(len(self._map))] # sets objects matrix to a matrix of all None the size of _map
+		for i in range(len(self._json['objects'])):
+			if self._json['objects'][i]['type'] == 'warp':
+				self._object_list.append(LevelWarp(self._json['objects'][i]))
+			elif self._json['objects'][i]['type'] == 'chest':
+				self._object_list.append(game_entities.Chest(self._json['objects'][i]))
+			elif self._json['objects'][i]['type'] == 'enemy':
+				self._object_list.append(game_NPCs.Enemy(self._json['objects'][i]))
+			elif self._json['objects'][i]['type'] == 'friendly':
+				self._object_list.append(game_NPCs.Friendly(self._json['objects'][i]))
+
+			self._object_matrix[self._object_list[-1].y_pos][self._object_list[-1].x_pos] = self._object_list[-1].getRef()
+
+# class Level:
+#     def __init__(self, level_p, tile_p=None):
+#         self.level_path = os.path.join(level_dir, level_p)
+#         self.warp_list = None
+#         self.npcs = []
+
+#         if tile_p is not None:
+#             self.tile_path = tile_p
+
+#     def set_warps(self, warps):
+#         self.warp_list = warps
         
-    def add_npc(self, npc):
-        self.npcs.append(npc)
+#     def add_npc(self, npc):
+#         self.npcs.append(npc)
 
 # CLASS LevelWarp
 # handles changing the level and moving player to correct location
 class LevelWarp:
-    def __init__(self, level, x, y):
-        self.new_level = level
-        self.new_x = x
-        self.new_y = y
+    def getRef(self):
+        return self
+
+    def __init__(self, json_obj):
+        if type(json_obj) == dict:
+            self.next_level = json_obj['next_level']
+            self.x_pos = json_obj['x_pos']
+            self.y_pos = json_obj['y_pos']
+            self.x_dest = json_obj['x_dest']
+            self.y_dest = json_obj['y_dest']
+        else:
+            raise Exception('non dictionary or json type provided')
+        
+
 
 # CLASS Game
 # stores screen resolution and background color
@@ -104,10 +191,10 @@ class LevelWarp:
 # TODO: add wall member as array of tiles
 # TODO: add floor member as array of tiles
 class Game:
-    black = (20, 12, 28)
+    dark_grey = (20, 12, 28)
     white = (223, 239, 215)
     blue = (89, 125, 207)
-    background_color = black
+    background_color = dark_grey
     # screen size (in 32*32 squares) needs to be odd numbers because of player in center
     screen_size = (45, 23)
     screen_resolution = (screen_size[0] * 32, screen_size[1] * 32)
@@ -115,6 +202,8 @@ class Game:
     screen_y_buffer = int((screen_size[1]-1)/2)
     key_delay = 200
     key_repeat = 50
+    current_map = []
+    current_object_map = [] 
     os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0, 32)
 
     def __init__(self):
@@ -212,25 +301,26 @@ class Game:
                 if self.current_map[i][j] == '_':  # set null
                     self.current_map[i][j] = -1
                 elif self.current_map[i][j] == '.':  # set floors
-                    rand = random.randint(1, 400)
-                    if rand > 50:
-                        self.current_map[i][j] = 1
-                    elif rand > 45:
-                        self.current_map[i][j] = 2
-                    elif rand > 40:
-                        self.current_map[i][j] = 3
-                    elif rand > 35:
-                        self.current_map[i][j] = 4
-                    elif rand > 30:
-                        self.current_map[i][j] = 5
-                    elif rand > 25:
-                        self.current_map[i][j] = 6
-                    elif rand > 20:
-                        self.current_map[i][j] = 7
-                    elif rand > 15:
-                        self.current_map[i][j] = 8
-                    else:
-                        self.current_map[i][j] = 9
+                    self.current_map[i][j] = 1
+                    # rand = random.randint(1, 400)
+                    # if rand > 50:
+                    #     self.current_map[i][j] = 1
+                    # elif rand > 45:
+                    #     self.current_map[i][j] = 2
+                    # elif rand > 40:
+                    #     self.current_map[i][j] = 3
+                    # elif rand > 35:
+                    #     self.current_map[i][j] = 4
+                    # elif rand > 30:
+                    #     self.current_map[i][j] = 5
+                    # elif rand > 25:
+                    #     self.current_map[i][j] = 6
+                    # elif rand > 20:
+                    #     self.current_map[i][j] = 7
+                    # elif rand > 15:
+                    #     self.current_map[i][j] = 8
+                    # else:
+                    #     self.current_map[i][j] = 9
 
                 elif self.current_map[i][j] == ',':
                     self.current_map[i][j] = 21
@@ -391,13 +481,13 @@ class Game:
         # TODO: consolidate all npc spawn points
         self.load_level(self.town_level)                # starting level
         self.player = game_entities.Player(20,20)
-        self.dungeon_1_level.add_npc(game_NPCs.Enemy(4, 18))      # new game
-        self.dungeon_1_level.add_npc(game_NPCs.Enemy(4, 4))       # new game
-        self.dungeon_1_level.add_npc(game_NPCs.Enemy(32, 2))      # new game
-        # self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
-        self.dungeon_1_level.add_npc(game_NPCs.Enemy(32, 21))     # new game
-        self.test.add_npc(game_NPCs.Enemy(3, 3))
-        self.test.add_npc(game_NPCs.Friendly(31, 20))
+        # self.dungeon_1_level.add_npc(game_NPCs.Enemy(4, 18))      # new game
+        # self.dungeon_1_level.add_npc(game_NPCs.Enemy(4, 4))       # new game
+        # self.dungeon_1_level.add_npc(game_NPCs.Enemy(32, 2))      # new game
+        # # self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
+        # self.dungeon_1_level.add_npc(game_NPCs.Enemy(32, 21))     # new game
+        # self.test.add_npc(game_NPCs.Enemy(3, 3))
+        # self.test.add_npc(game_NPCs.Friendly(31, 20))
         self.play()
 
     def main_menu(self):

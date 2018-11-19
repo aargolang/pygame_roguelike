@@ -1,20 +1,27 @@
 import pygame
 import roguelike
 
+
 # my libraries
 import game_engine
+import event
 
 # CLASS Friendly
 # npcs that will be shopkeepers, random encounters, any npc that dosnt try to rob you
 class Friendly(pygame.sprite.Sprite):
-    def __init__(self, x_pos, y_pos):
-        pygame.sprite.Sprite.__init__(self)
-        
-        self.image = game_engine.load_image('friendly.png')
-        self.x = x_pos
-        self.y = y_pos
-        self.agro = False
-        self.alignment = 'GOOD'
+    def getRef(self):
+        return self
+
+    def __init__(self, json_obj):
+        if type(json_obj) == dict:
+            pygame.sprite.Sprite.__init__(self)
+            self.image = game_engine.load_image('friendly.png')
+            self.x_pos = json_obj['x_pos']
+            self.y_pos = json_obj['y_pos']
+            self.agro = False
+            self.alignment = 'GOOD'
+        else:
+            raise Exception('non dictionary or json type provided')
 
     def update(self, player, level_map):
         sight_distance = 2
@@ -47,13 +54,27 @@ class Friendly(pygame.sprite.Sprite):
 # CLASS Enemy
 # any NPC that IS going to try to rob you
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x_pos, y_pos):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = game_engine.load_image('enemy.png')
-        self.x = x_pos
-        self.y = y_pos
-        self.agro = False
-        self.alignment = 'BAD'
+    def getRef(self):
+        return self
+
+    def __init__(self, json_obj):
+        if type(json_obj) == dict:
+            pygame.sprite.Sprite.__init__(self)
+            self.image = game_engine.load_image('enemy.png')
+            self.x_pos = json_obj['x_pos']
+            self.y_pos = json_obj['y_pos']
+            self.agro = False
+            self.alignment = 'BAD'
+            self.moved = event.Event('enemy moved event')
+        else:
+            raise Exception('non dictionary or json type provided')
+
+    def move(self, direction):
+        if type(direction) == str:
+            if direction[0].lower() == 'n':
+                self.moved()
+        else:
+            raise Exception('direction not of type string as needed')
 
     def update(self, player, level_map):
         sight_distance = 6
