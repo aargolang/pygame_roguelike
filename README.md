@@ -12,18 +12,9 @@ Directions:
 	Game:
 	directional keys to move/attack/talk/trade/pay respects/not die/save the world
 
-last updated: 4/14/18
+11/18/18: Yep, I broke the build. decided to take a look at this project and decided that there was much under the hood that needed to be improved. I took a shot at trying to fix it in one day but I bit off a little more than I could chew for one day. The project does not build at the moment but there are still many improvements:
+- levels are stored as json files instead of csv files
+- levels will have two layers map and object matrix. this will make all rendering and checking much simpler and faster than before. 
+- game is now broken up into separate files. no more all-in-one file.
 
-status:
- + music! sorry if its too loud or annoying. will be developing more themes in the future
- + enemies now follow you with basic AI but they get stuck underneat player because no collision interaction
- 
-current projects:
- - create an interface that includes health, game messages, threat level, minimap(maybe?plz?), pretty stuff
- - save generated level files per-game to ensure randomized floor tiles are consistent in game
- - actually crate a d20 battle system
- - create wall and floor objects that contain the relevant tileset
- - declutter drawing code
- - make menu selectable with directional keys and enter
- - implement a dialoge system
- 
+There is now less coupling across the board but there are still parts the need rethinking. Once the new system is running then I will focus on making the code scalable. 
