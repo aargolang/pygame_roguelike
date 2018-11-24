@@ -4,8 +4,8 @@ import csv
 import random
 import json
 
+
 # game
-import roguelike
 
 # 3rd party libraries
 import pygame
@@ -13,8 +13,10 @@ from pygame.locals import *
 from pygame.compat import geterror
 
 # my libraries
-import game_NPCs
-import game_entities
+from game_NPCs import Enemy
+from game_NPCs import Friendly
+from game_entities import Chest
+from game_entities import Player
 
 # asset directories
 main_dir = os.path.split(os.path.abspath(__file__))[0]
@@ -93,10 +95,11 @@ class Wall:
 # Class Level
 # this stores the information for a level in one class 
 # this class should be treated like a singleton
-class Level():
+class Level(object):
+	_map_name = None
 	_map = []
 	_object_matrix = []
-	_object_list = []
+	object_list = []
 	_json = {}
 	def __init__(self):
 		self._map = None
@@ -110,17 +113,9 @@ class Level():
 				json.dump(data, outfile, indent=4)
 
 	# handler for when objects get updated in the object matrix
-	def moveObject(self, sender, args):
-		if args[0].lower() == 'n':
-			self._object_matrix[sender.x_pos][sender.y_pos - 1] = sender.getRef()
-		elif args[0].lower() == 's': 
-			self._object_matrix[sender.x_pos][sender.y_pos + 1] = sender.getRef()
-		elif args[0].lower() == 'e':
-			self._object_matrix[sender.x_pos + 1][sender.y_pos] = sender.getRef()
-		elif args[0].lower() == 'w':
-			self._object_matrix[sender.x_pos - 1][sender.y_pos] = sender.getRef()
-
-		self._object_matrix[sender.x_pos][sender.y_pos] = None
+	def onObjectMove(self, sender, eventArgs):
+		self._object_matrix[sender.y_pos][sender.x_pos] = sender.getRef()
+		self._object_matrix[eventArgs[1]][eventArgs[0]] = None
 
 	def getObjAt(self, x, y):
 		return self._object_matrix[x][y]
@@ -128,34 +123,47 @@ class Level():
 	def getMapAt(self, x, y):
 		return self._map[x][y]
 
+	def getMap(self):
+		return self._map
+
+	# saveLevel takes the current level in memory and saves it to Json format
 	def saveLevel(self):
-		pass
+		self._json['objects'] = []
+		for obj in self.object_list:
+			self._json['objects'].append(obj.toDict())
+		path = 'levels/' + self._map_name + '.json'
+		self.__save_json(path, self._json)
+
 
 	# Load Level
 	# len(self._map) is height of map
 	# len(self._map[0]) is width of map
 	def loadLevel(self,level_name):
-		# if there is a current map then save map
 
-		if self._map != None:
-			self.saveLevel()
-
-
-		self._json = self.__load_json('levels/' + level_name + '.json')	
+		self._json = self.__load_json('levels/' + level_name + '.json')
+		self._map_name = self._json["name"]
 		self._map = self._json['map']
-		print(len(self._map))
 		self._object_matrix = [[None] * len(self._map[0]) for i in range(len(self._map))] # sets objects matrix to a matrix of all None the size of _map
 		for i in range(len(self._json['objects'])):
 			if self._json['objects'][i]['type'] == 'warp':
-				self._object_list.append(LevelWarp(self._json['objects'][i]))
+				self.object_list.append(LevelWarp(self._json['objects'][i]))
 			elif self._json['objects'][i]['type'] == 'chest':
-				self._object_list.append(game_entities.Chest(self._json['objects'][i]))
+				self.object_list.append(Chest(self._json['objects'][i]))
 			elif self._json['objects'][i]['type'] == 'enemy':
-				self._object_list.append(game_NPCs.Enemy(self._json['objects'][i]))
+				self.object_list.append(Enemy(self._json['objects'][i]))
+				self.object_list[-1].moved_event += self.onObjectMove
 			elif self._json['objects'][i]['type'] == 'friendly':
-				self._object_list.append(game_NPCs.Friendly(self._json['objects'][i]))
+				self.object_list.append(Friendly(self._json['objects'][i]))
 
-			self._object_matrix[self._object_list[-1].y_pos][self._object_list[-1].x_pos] = self._object_list[-1].getRef()
+			self._object_matrix[self.object_list[-1].y_pos][self.object_list[-1].x_pos] = self.object_list[-1].getRef()
+
+		self.enumerateLevel()
+
+	def switchLevel(self, level_name):
+		if self._map != None:
+			self.saveLevel()
+		
+		self.loadLevel(level_name)
 
 		# put wall instances in the object matrix
 		for y in range(len(self._map)):
@@ -163,81 +171,68 @@ class Level():
 				if self._map[y][x] == '1':
 					self._object_matrix[y][x] = Wall.getInstance()
 
-		# enumerateLevel
-		# enumerates levels character values by convention
-		# corresponding wall floor class is +/- 60
-		# floors 1('.'):        1 - 20
-		# floors 2(','):        21 - 40
-		# floors 3('`'):        41 - 60
-		# walls 1('1'):         61 - 80
-		# walls 2('2'):         81 - 100
-		# walls 3('3'):         101 - 120
-		# warp:                 0
-		# nullspace('_'):       -1
-		def enumerateLevel(self, lev):
-			if self.current_map is not None:
-				self.current_map.clear()
-			for i in range(len(self.current_map)):
-				for j in range(len(self.current_map[0])):
-					if self.current_map[i][j] == '_':  # set null
-						self.current_map[i][j] = -1
-					elif self.current_map[i][j] == '.':  # set floors
-						self.current_map[i][j] = 1
-						rand = random.randint(1, 400)
-						if rand > 50:
-							self.current_map[i][j] = 1
-						elif rand > 45:
-							self.current_map[i][j] = 2
-						elif rand > 40:
-							self.current_map[i][j] = 3
-						elif rand > 35:
-							self.current_map[i][j] = 4
-						elif rand > 30:
-							self.current_map[i][j] = 5
-						elif rand > 25:
-							self.current_map[i][j] = 6
-						elif rand > 20:
-							self.current_map[i][j] = 7
-						elif rand > 15:
-							self.current_map[i][j] = 8
-						else:
-							self.current_map[i][j] = 9
+	# enumerateLevel
+	# enumerates levels character values by convention
+	# corresponding wall floor class is +/- 60
+	# floors 1('.'):        1 - 20
+	# floors 2(','):        21 - 40
+	# floors 3('`'):        41 - 60
+	# walls 1('1'):         61 - 80
+	# walls 2('2'):         81 - 100
+	# walls 3('3'):         101 - 120
+	# warp:                 0
+	# nullspace('_'):       -1
+	def enumerateLevel(self):
+		for i in range(len(self._map)):
+			for j in range(len(self._map[0])):
+				if self._map[i][j] == '_':  # set null
+					self._map[i][j] = -1
+				elif self._map[i][j] == '.':  # set floors
+					self._map[i][j] = 1
+					rand = random.randint(1, 400)
+					if rand > 50:
+						self._map[i][j] = 1
+					elif rand > 45:
+						self._map[i][j] = 2
+					elif rand > 40:
+						self._map[i][j] = 3
+					elif rand > 35:
+						self._map[i][j] = 4
+					elif rand > 30:
+						self._map[i][j] = 5
+					elif rand > 25:
+						self._map[i][j] = 6
+					elif rand > 20:
+						self._map[i][j] = 7
+					elif rand > 15:
+						self._map[i][j] = 8
+					else:
+						self._map[i][j] = 9
 
-					elif self.current_map[i][j] == ',':
-						self.current_map[i][j] = 21
-					elif self.current_map[i][j] == '`':
-						self.current_map[i][j] = 41
-					elif self.current_map[i][j] == '1':  # set walls
-						self.current_map[i][j] = 61
-					elif self.current_map[i][j] == '2':
-						self.current_map[i][j] = 81
-					elif self.current_map[i][j] == '3':
-						self.current_map[i][j] = 101
-
-
-# class Level:
-#     def __init__(self, level_p, tile_p=None):
-#         self.level_path = os.path.join(level_dir, level_p)
-#         self.warp_list = None
-#         self.npcs = []
-
-#         if tile_p is not None:
-#             self.tile_path = tile_p
-
-#     def set_warps(self, warps):
-#         self.warp_list = warps
-		
-#     def add_npc(self, npc):
-#         self.npcs.append(npc)
+				elif self._map[i][j] == ',':
+					self._map[i][j] = 21
+				elif self._map[i][j] == '`':
+					self._map[i][j] = 41
+				elif self._map[i][j] == '1':  # set walls
+					self._map[i][j] = 61
+				elif self._map[i][j] == '2':
+					self._map[i][j] = 81
+				elif self._map[i][j] == '3':
+					self._map[i][j] = 101
 
 # CLASS LevelWarp
 # handles changing the level and moving player to correct location
-class LevelWarp:
+class LevelWarp():
 	def getRef(self):
 		return self
 
+	def toDict(self):
+		return { 'type':'warp','next_level':self.next_level, 'x_pos':self.x_pos, 'y_pos':self.y_pos, 
+				'x_dest':self.x_dest, 'y_dest':self.y_dest }
+
 	def __init__(self, json_obj):
 		if type(json_obj) == dict:
+			self.image = load_image('warp.png')
 			self.next_level = json_obj['next_level']
 			self.x_pos = json_obj['x_pos']
 			self.y_pos = json_obj['y_pos']
@@ -278,7 +273,9 @@ class Game:
 		self.font_1 = pygame.font.Font('fonts/victor-pixel.ttf', 32)
 
 		pygame.key.set_repeat(self.key_delay, self.key_repeat)
-		self.screen = pygame.display.set_mode(self.screen_resolution)
+		flags = DOUBLEBUF | HWACCEL
+		self.screen = pygame.display.set_mode(self.screen_resolution,flags)
+		pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP])
 
 		# setup display and background color/size
 		pygame.display.set_icon(pygame.image.load('graphics/icon.png'))
@@ -318,33 +315,33 @@ class Game:
 			joystick = pygame.joystick.Joystick(0)
 			joystick.init()
 
-		pos_east = self.current_map[self.player.y][self.player.x + 1]
-		pos_west = self.current_map[self.player.y][self.player.x - 1]
-		pos_north = self.current_map[self.player.y - 1][self.player.x]
-		pos_south = self.current_map[self.player.y + 1][self.player.x]
+		# pos_east = self.current_map[self.player.y_pos][self.player.x_pos + 1]
+		# pos_west = self.current_map[self.player.y_pos][self.player.x_pos - 1]
+		# pos_north = self.current_map[self.player.y_pos - 1][self.player.x_pos]
+		# pos_south = self.current_map[self.player.y_pos + 1][self.player.x_pos]
 
 		# get enemies in close proximity and forbid moving in those directions
 		# need to detect enemies that are adjacent to player
 		# TODO: this is linear time and need to be improved
-		for npc in self.current_level.npcs:
-			if npc.x == self.player.x:
-				if npc.y == (self.player.y + 1):
-					print("south")
-					pos_south = 61
-					# collide with npc to the south
-				elif npc.y == (self.player.y - 1):
-					print("north")
-					pos_north = 61
-					# collide with npc to the north
-			elif npc.y == self.player.y:
-				if npc.x == (self.player.x + 1):
-					print("east")
-					pos_east = 61
-					# collide with npc to the east
-				elif npc.x == (self.player.x - 1):
-					print("west")
-					pos_west = 61
-					# collide with npc to the west
+		# for npc in self.current_level.npcs:
+		# 	if npc.x_pos == self.player.x_pos:
+		# 		if npc.y_pos == (self.player.y_pos + 1):
+		# 			print("south")
+		# 			pos_south = 61
+		# 			# collide with npc to the south
+		# 		elif npc.y_pos == (self.player.y_pos - 1):
+		# 			print("north")
+		# 			pos_north = 61
+		# 			# collide with npc to the north
+		# 	elif npc.y_pos == self.player.y_pos:
+		# 		if npc.x_pos == (self.player.x_pos + 1):
+		# 			print("east")
+		# 			pos_east = 61
+		# 			# collide with npc to the east
+		# 		elif npc.x_pos == (self.player.x_pos - 1):
+		# 			print("west")
+		# 			pos_west = 61
+		# 			# collide with npc to the west
 
 		while True:
 			# improve performance by waiting to draw until new event is on event queue
@@ -353,88 +350,95 @@ class Game:
 				return False
 
 			if event.type == KEYDOWN:
-				if event.key == K_RIGHT and (pos_east < 61):
-					self.player.x += 1
+				if event.key == K_RIGHT and self.current_level.getObjAt(self.player.x_pos + 1, self.player.y_pos) == None:
+					self.player.x_pos += 1
 					return True
-				elif event.key == K_LEFT and (pos_west < 61):
-					self.player.x -= 1
+				elif event.key == K_LEFT and self.current_level.getObjAt(self.player.x_pos - 1, self.player.y_pos) == None:
+					self.player.x_pos -= 1
 					return True
-				elif event.key == K_UP and (pos_north < 61):
-					self.player.y -= 1
+				elif event.key == K_UP and self.current_level.getObjAt(self.player.x_pos, self.player.y_pos - 1) == None:
+					self.player.y_pos -= 1
 					return True
-				elif event.key == K_DOWN and (pos_south < 61):
-					self.player.y += 1
+				elif event.key == K_DOWN and self.current_level.getObjAt(self.player.x_pos, self.player.y_pos + 1) == None:
+					self.player.y_pos += 1
 					return True
 				elif event.key == K_ESCAPE:
 					return False
 
 			# xinput controls
 			# need to implement repeat on hold down. no pygame methods available for this
-			if event.type == JOYHATMOTION:
-				hat = joystick.get_hat(0)
-				if hat == (1, 0) and (pos_east < 61):
-					self.player.x += 1
-					return True
-				if hat == (-1, 0) and (pos_west < 61):
-					self.player.x -= 1
-					return True
-				if hat == (0, 1) and (pos_north < 61):
-					self.player.y -= 1
-					return True
-				if hat == (0, -1) and (pos_south < 61):
-					self.player.y += 1
-					return True
+			# if event.type == JOYHATMOTION:
+			# 	hat = joystick.get_hat(0)
+			# 	if hat == (1, 0) and (pos_east < 61):
+			# 		self.player.x_pos += 1
+			# 		return True
+			# 	if hat == (-1, 0) and (pos_west < 61):
+			# 		self.player.x_pos -= 1
+			# 		return True
+			# 	if hat == (0, 1) and (pos_north < 61):
+			# 		self.player.y_pos -= 1
+			# 		return True
+			# 	if hat == (0, -1) and (pos_south < 61):
+			# 		self.player.y_pos += 1
+			# 		return True
 
 	# DRAW TICK
 	# this function handles all of the rendering functionality
 	# has no return value
 	def draw_tick(self):
 		# check for warp
-		pos = self.current_map[self.player.y][self.player.x]
-		if pos == 0:
-			position_key = str(self.player.x) + ',' + str(self.player.y)
-			if self.current_level.warp_list[position_key]:
-				warp = self.current_level.warp_list[position_key]
-				self.load_level(warp.new_level)
-				self.player.x = warp.new_x
-				self.player.y = warp.new_y
+		# needs reworking 
+		# pos = self.current_map[self.player.y_pos][self.player.x_pos]
+		# if pos == 0:
+		# 	position_key = str(self.player.x_pos) + ',' + str(self.player.y_pos)
+		# 	if self.current_level.warp_list[position_key]:
+		# 		warp = self.current_level.warp_list[position_key]
+		# 		self.load_level(warp.new_level)
+		# 		self.player.x_pos = warp.new_x
+		# 		self.player.y_pos = warp.new_y
 
 		# draw the current_map matrix
 		# scroll the map based on the player
 		# TODO: fix this to include variable resolution values
 		self.screen.blit(self.background, (0, 0))
-		for x in range(self.player.x - self.screen_x_buffer, self.player.x + self.screen_x_buffer + 1):
-			for y in range(self.player.y - self.screen_y_buffer, self.player.y + self.screen_y_buffer + 1):
+		for x in range(self.player.x_pos - self.screen_x_buffer, self.player.x_pos + self.screen_x_buffer + 1):
+			for y in range(self.player.y_pos - self.screen_y_buffer, self.player.y_pos + self.screen_y_buffer + 1):
 				if x in range(len(self.current_map[0])) and y in range(len(self.current_map)):
+					# draw the background 
 					if self.current_map[y][x] > 80:
-						self.screen.blit(self.wall[1], ((x - self.player.x + self.screen_x_buffer) * 32,
-														(y - self.player.y + self.screen_y_buffer) * 32))
+						self.screen.blit(self.wall[1], ((x - self.player.x_pos + self.screen_x_buffer) * 32,
+														(y - self.player.y_pos + self.screen_y_buffer) * 32))
 					elif self.current_map[y][x] > 60:
-						self.screen.blit(self.wall[0], ((x - self.player.x + self.screen_x_buffer) * 32,
-														(y - self.player.y + self.screen_y_buffer) * 32))
+						self.screen.blit(self.wall[0], ((x - self.player.x_pos + self.screen_x_buffer) * 32,
+														(y - self.player.y_pos + self.screen_y_buffer) * 32))
 					elif self.current_map[y][x] > 20:
-						self.screen.blit(self.floor_2[0], ((x - self.player.x + self.screen_x_buffer) * 32,
-														 (y - self.player.y + self.screen_y_buffer) * 32))
+						self.screen.blit(self.floor_2[0], ((x - self.player.x_pos + self.screen_x_buffer) * 32,
+														 (y - self.player.y_pos + self.screen_y_buffer) * 32))
 					elif self.current_map[y][x] > 0:
 						self.screen.blit(self.floor_1[self.current_map[y][x]-1],
-										 ((x - self.player.x + self.screen_x_buffer) * 32,
-										  (y - self.player.y + self.screen_y_buffer) * 32))
+										 ((x - self.player.x_pos + self.screen_x_buffer) * 32,
+										  (y - self.player.y_pos + self.screen_y_buffer) * 32))
 					elif self.current_map[y][x] == 0:
-						self.screen.blit(self.warp, ((x - self.player.x + self.screen_x_buffer) * 32,
-													 (y - self.player.y + self.screen_y_buffer) * 32))
+						self.screen.blit(self.warp, ((x - self.player.x_pos + self.screen_x_buffer) * 32,
+													 (y - self.player.y_pos + self.screen_y_buffer) * 32))
 
 		# update and draw npcs on the screen
-		if len(self.current_level.npcs) > 0:
-			for npc in self.current_level.npcs:
-				npc.update(self.player, self.current_map)
 
-				if npc.x in range(len(self.current_map[0])) and npc.y in range(len(self.current_map)):
-					self.screen.blit(npc.image, ((npc.x - self.player.x + self.screen_x_buffer) * 32,
-												 (npc.y - self.player.y + self.screen_y_buffer) * 32))
+		#if len(self.current_level.obj) > 0:
+		for obj in self.current_level.object_list:
+			# obj.update(self.player, self.current_map) # eventually get to this step
+
+			if obj.x_pos in range(len(self.current_map[0])) and obj.y_pos in range(len(self.current_map)):
+				self.screen.blit(obj.image, ((obj.x_pos - self.player.x_pos + self.screen_x_buffer) * 32,
+												(obj.y_pos - self.player.y_pos + self.screen_y_buffer) * 32))
 
 		# draw player in the center of the screen
 		self.screen.blit(self.player.image, (self.screen_x_buffer * 32, self.screen_y_buffer * 32))
 		pygame.display.flip()
+
+	def loadLevel(self, levelName):
+		self.current_level.loadLevel(levelName)
+		self.current_map = self.current_level.getMap()
 
 	# main game loop
 	def play(self):
@@ -446,15 +450,10 @@ class Game:
 
 	def new_game(self):
 		# TODO: consolidate all npc spawn points
-		self.load_level(self.town_level)                # starting level
-		self.player = game_entities.Player(20,20)
-		# self.dungeon_1_level.add_npc(game_NPCs.Enemy(4, 18))      # new game
-		# self.dungeon_1_level.add_npc(game_NPCs.Enemy(4, 4))       # new game
-		# self.dungeon_1_level.add_npc(game_NPCs.Enemy(32, 2))      # new game
-		# # self.dungeon_1_level.add_npc(Enemy(32, 17))     # new game
-		# self.dungeon_1_level.add_npc(game_NPCs.Enemy(32, 21))     # new game
-		# self.test.add_npc(game_NPCs.Enemy(3, 3))
-		# self.test.add_npc(game_NPCs.Friendly(31, 20))
+		# self.load_level(self.town_level)                # starting level
+		self.current_level = Level()
+		self.loadLevel('town')
+		self.player = Player(5,5)
 		self.play()
 
 	def main_menu(self):

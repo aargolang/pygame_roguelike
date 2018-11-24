@@ -1,10 +1,34 @@
 import pygame
-import roguelike
+from event import Event
+import os
 
+from pygame.compat import geterror
 
 # my libraries
-import game_engine
-import event
+main_dir = os.path.split(os.path.abspath(__file__))[0]
+graphics_dir = os.path.join(main_dir, 'graphics')
+sound_dir = os.path.join(main_dir, 'sound')
+level_dir = os.path.join(main_dir, 'levels')
+
+# load_image
+# concatenates the name to the graphics directory
+# and checks to see if that file path works,
+# throws an error if unsuccessful
+# scales up graphics by 2
+# returns: image
+def load_image(name):
+	fullpath = os.path.join(graphics_dir, name)
+	try:
+		image = pygame.image.load(fullpath)
+	except pygame.error:
+		print('cannot load image', fullpath)
+		raise SystemExit(str(geterror()))
+
+	# upscale loaded images by 2x and 2y
+	dimensions = (2 * image.get_width(), 2 * image.get_height())
+	image = pygame.transform.scale(image, dimensions)
+
+	return image
 
 # CLASS Friendly
 # npcs that will be shopkeepers, random encounters, any npc that dosnt try to rob you
@@ -12,10 +36,13 @@ class Friendly(pygame.sprite.Sprite):
     def getRef(self):
         return self
 
+    def toDict(self):
+        return { 'type':'friendly', 'x_pos':self.x_pos, 'y_pos':self.y_pos }
+
     def __init__(self, json_obj):
         if type(json_obj) == dict:
             pygame.sprite.Sprite.__init__(self)
-            self.image = game_engine.load_image('friendly.png')
+            self.image = load_image('friendly.png')
             self.x_pos = json_obj['x_pos']
             self.y_pos = json_obj['y_pos']
             self.agro = False
@@ -54,25 +81,38 @@ class Friendly(pygame.sprite.Sprite):
 # CLASS Enemy
 # any NPC that IS going to try to rob you
 class Enemy(pygame.sprite.Sprite):
+    moved_event = Event("event that happens after movement")
     def getRef(self):
         return self
+
+    def toDict(self):
+        return { 'type':'enemy', 'x_pos':self.x_pos, 'y_pos':self.y_pos }
 
     def __init__(self, json_obj):
         if type(json_obj) == dict:
             pygame.sprite.Sprite.__init__(self)
-            self.image = game_engine.load_image('enemy.png')
+            self.image = load_image('enemy.png')
             self.x_pos = json_obj['x_pos']
             self.y_pos = json_obj['y_pos']
             self.agro = False
             self.alignment = 'BAD'
-            self.moved = event.Event('enemy moved event')
         else:
             raise Exception('non dictionary or json type provided')
 
     def move(self, direction):
+        
         if type(direction) == str:
+            previous_position = (self.x_pos, self.y_pos)
             if direction[0].lower() == 'n':
-                self.moved()
+                self.x_pos -= 1
+            elif direction[0].lower() == 's':
+                self.x_pos += 1
+            elif direction[0].lower() == 'e':
+                self.y_pos += 1
+            elif direction[0].lower() == 'w':
+                self.y_pos -= 1
+
+            self.moved_event(self,previous_position)
         else:
             raise Exception('direction not of type string as needed')
 
